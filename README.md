@@ -1,10 +1,10 @@
 # Road Accident Risk Intelligence
 
-Road Accident Risk Intelligence is a machine learning decision-support project for estimating and ranking the relative risk of road accidents across road segments and time windows.
+Road Accident Risk Intelligence is a machine learning decision-support project for estimating and ranking relative road-accident risk across spatial units and time windows.
 
-The project is designed as a reproducible research-to-production ML system. Its primary goal is to support road operators and municipal road-safety teams in prioritizing locations and time periods for further inspection, analysis, and safety review.
+The project is designed as a reproducible research-to-production ML system. Its intended use is to help road operators, municipal road-safety teams, and transportation analysts prioritize locations and time periods for further inspection, analysis, and safety review.
 
-The system is not intended to predict individual crashes with certainty or to classify a road segment as absolutely safe or dangerous. Model outputs are treated as relative risk estimates that support human decision-making.
+The system is not intended to predict individual crashes with certainty or to classify a location as absolutely safe or dangerous. Model outputs are treated as relative-risk estimates that support human decision-making.
 
 ---
 
@@ -16,9 +16,11 @@ The project is based on the research direction explored at Nagoya University in:
 *Prediction and Information Provision of Traffic Accident Risk on Nagoya Expressway.*  
 Master's thesis, Nagoya University, 2024.
 
-The original research studies traffic accident risk as a spatially and temporally varying phenomenon rather than a static property of a road.
+The academic idea retained by this project is that traffic-accident risk varies across both space and time and should therefore be modeled as a contextual risk-estimation problem rather than as a static accident map.
 
-Road Accident Risk Intelligence preserves this core idea while extending it toward a reproducible machine learning system with explicit dataset construction, leakage-safe validation, probability calibration, model versioning, and later deployment-oriented components.
+Road Accident Risk Intelligence adapts this research direction to an open-data pilot in **Toronto, Canada**.
+
+The project extends the original research idea toward a reproducible machine learning system with explicit dataset construction, leakage-safe validation, probability calibration, model versioning, and later deployment-oriented components.
 
 Academic reference:
 
@@ -32,33 +34,34 @@ Road accidents are rare events whose probability is not distributed uniformly ac
 
 Risk may depend on factors such as:
 
-- road characteristics;
-- intersection context;
+- road and intersection characteristics;
 - time of day and day of week;
 - weather conditions;
 - traffic exposure;
 - recent accident history;
 - local spatial context.
 
-The project therefore models risk at the level of a road segment and a time interval.
+The project therefore treats road-safety risk as a spatiotemporal machine learning problem.
 
-### Prediction unit
+### Intended prediction unit
 
 ```text
-road segment × time window
+road spatial unit × time window
 ```
 
-### Machine learning task
+The final spatial unit and time-bucket granularity have not yet been frozen.
 
-The intended ML formulation is:
+Week 1 established that a signalized-intersection pilot is feasible, but the canonical observation unit will be finalized during dataset construction.
+
+### Intended machine learning task
 
 ```text
 rare-event binary classification + relative-risk ranking
 ```
 
-The model will estimate the risk associated with a segment-time observation and rank observations relative to one another.
+The future model will estimate risk for each spatial-temporal observation and rank observations relative to one another.
 
-The exact prediction horizon and time-bucket granularity have not yet been fixed. They will be selected after empirical analysis of accident prevalence and temporal sparsity.
+The exact target horizon and observation granularity will be determined empirically from target prevalence and temporal sparsity.
 
 ---
 
@@ -70,11 +73,11 @@ The primary intended users are:
 - municipal road-safety teams;
 - transportation infrastructure analysts.
 
-A typical future workflow is expected to be:
+A future operational workflow is expected to be:
 
-1. construct observations for a set of road segments and time windows;
+1. construct observations for a set of road locations and time windows;
 2. estimate accident risk for each observation;
-3. rank the observations by relative risk;
+3. rank observations by relative risk;
 4. inspect the highest-risk cases together with their context;
 5. use the ranking as one input to a human safety-review process.
 
@@ -96,36 +99,213 @@ The project does not aim to provide:
 
 ## 4. Current Project Status
 
-The project is currently in the **architecture and repository bootstrap stage**.
+**Current milestone: Week 1 completed — Toronto collision-data feasibility study.**
 
-No accident dataset has yet been ingested into the implementation, and no ML model has been trained.
+The repository bootstrap and the first empirical data investigation are complete.
+
+No machine learning model has been trained yet.
 
 | Component | Status |
 |---|---|
 | Repository architecture | Implemented |
 | Python `src` layout | Implemented |
-| Python package bootstrap | Implemented |
-| Local virtual environment | Implemented |
+| Python package bootstrap | Implemented and verified |
+| Virtual environment | Implemented |
 | Editable package installation | Verified |
 | Data lifecycle structure | Implemented |
 | Data lifecycle rules | Defined |
-| Notebook workspace | Created |
-| Source-data ingestion | Not started |
-| Data schema analysis | Not started |
-| Segment-time dataset construction | Not started |
-| Exploratory data analysis | Not started |
+| Week 1 data-source feasibility | Completed |
+| Toronto Traffic Collisions inspection | Completed |
+| Toronto KSI schema inspection | Completed |
+| KSI event-level analysis | Completed |
+| Coordinate feasibility analysis | Completed |
+| Signalized-intersection pilot feasibility | Completed |
+| Pilot feasibility decision | **GO** |
+| Canonical ingestion pipeline in `src/` | Not started |
+| Canonical spatial unit definition | Not finalized |
+| Time-bucket definition | Not finalized |
+| Negative-observation generation | Not started |
+| Target prevalence analysis | Not started |
+| Full exploratory data analysis | Not started |
 | Feature engineering | Not started |
 | Baseline models | Not started |
 | Model evaluation | Not started |
-| Production API / database / monitoring | Not implemented |
+| API / database / monitoring | Deferred |
 
 No model-performance metrics are reported at this stage.
 
-Metrics will only be published after the dataset, validation strategy, and final holdout procedure have been defined and implemented.
+Metrics will only be published after the dataset, target construction, validation strategy, and final holdout procedure have been defined and implemented.
 
 ---
 
-## 5. Current Repository Structure
+## 5. Week 1 — Data Feasibility Study
+
+Week 1 focused on answering a prerequisite question before any modeling work:
+
+> Is there enough open, structured, spatially usable collision data to support a credible Toronto pilot?
+
+The analysis is documented in:
+
+[`notebooks/01_data_feasibility.ipynb`](notebooks/01_data_feasibility.ipynb)
+
+### 5.1 Data sources examined
+
+#### Toronto Traffic Collisions
+
+- **Source:** Toronto Police Service Public Safety Data Portal
+- **Dataset:** Traffic Collisions Open Data
+- **Dataset identifier:** ASR-T-TBL-001
+- **Snapshot downloaded:** 2026-10-05
+- **Format:** CSV
+- **Observed coverage:** 2014-01-01 to 2026-06-30
+- **Licence:** Open Government Licence
+
+#### Motor Vehicle Collisions with Killed or Seriously Injured Data
+
+- **Source:** City of Toronto Open Data
+- **Dataset:** Motor Vehicle Collisions with Killed or Seriously Injured (KSI) Data
+- **Snapshot downloaded:** 2026-10-05
+- **Format:** CSV
+- **Spatial reference:** WGS84 coordinates available
+- **Observed coverage:** 2006-01-01 to 2026-09-15
+- **Licence:** Open Government Licence
+
+Raw source snapshots are stored locally under `data/raw/` and are excluded from Git.
+
+---
+
+## 6. Week 1 Findings
+
+### General Traffic Collisions dataset
+
+The inspected Toronto Traffic Collisions snapshot contains:
+
+```text
+825,265 rows
+825,265 unique collision events
+23 columns
+```
+
+The one-row-per-event structure makes the dataset useful for broader collision context.
+
+However, the inspected schema does not provide a sufficiently precise distinction between serious injuries and other injury collisions for the intended KSI-oriented target definition.
+
+For this reason, the general Traffic Collisions dataset is **not treated as the authoritative KSI outcome source**.
+
+---
+
+### KSI dataset
+
+The inspected KSI snapshot contains:
+
+```text
+20,771 person-level rows
+7,620 unique collision events
+50 columns
+```
+
+The dataset is person-level rather than strictly collision-level.
+
+This means that multiple rows can belong to the same collision event and must not be interpreted as independent collisions.
+
+The canonical collision identifier is therefore essential when constructing event-level observations.
+
+### Coordinate availability
+
+Event-level coordinate coverage is nearly complete:
+
+```text
+7,619 / 7,620 unique KSI collision events
+```
+
+have complete latitude and longitude information in the inspected snapshot.
+
+This confirms that the dataset is spatially usable for the Toronto pilot.
+
+### Event-level consistency
+
+Important road-context fields inspected during Week 1 were consistent within individual collision events.
+
+In particular, the examined event-level values of:
+
+```text
+traffictl
+accloc
+```
+
+did not produce contradictory values inside the same `collision_id`.
+
+This supports aggregation from person-level rows to collision-level records.
+
+---
+
+## 7. Pilot Definition
+
+Week 1 tested whether a strict intersection-focused pilot could provide enough positive events for further work.
+
+The feasibility subset currently requires:
+
+```text
+Traffic Signal
++
+explicit intersection-location category
+```
+
+The resulting strict subset contains:
+
+```text
+2,252 unique KSI collision events
+```
+
+This is large enough to justify continuing to Week 2.
+
+### Important semantic decision
+
+The category:
+
+```text
+Intersection-Related
+```
+
+is not currently included in the strict pilot definition.
+
+Its semantic meaning is broader than an explicitly located intersection event and requires further justification before being merged into the canonical pilot population.
+
+The project therefore prefers a narrower but better-defined pilot over an artificially larger sample with ambiguous semantics.
+
+---
+
+## 8. Week 1 Feasibility Decision
+
+### Decision
+
+```text
+GO
+```
+
+The currently inspected Toronto open data are sufficient to continue building the pilot dataset.
+
+The KSI dataset is the authoritative source for serious-collision outcomes in the current pilot.
+
+The broader Traffic Collisions dataset remains useful as a contextual source, but it must not be treated as equivalent to the KSI dataset for serious-injury target definition.
+
+This is a **data-feasibility decision**, not a finalized ML target definition.
+
+The following decisions remain open:
+
+- canonical spatial unit;
+- time-bucket size;
+- prediction horizon;
+- negative-observation construction;
+- traffic exposure representation;
+- external road metadata;
+- weather-data integration.
+
+These will be addressed incrementally.
+
+---
+
+## 9. Current Repository Structure
 
 ```text
 road-risk-intelligence/
@@ -140,6 +320,7 @@ road-risk-intelligence/
 │   └── processed/
 │
 ├── notebooks/
+│   └── 01_data_feasibility.ipynb
 │
 └── src/
     └── road_risk/
@@ -160,13 +341,68 @@ The `src/` directory is a repository-level source-code boundary and is not part 
 
 ---
 
-## 6. Architecture Principles
+## 10. Data Lifecycle
 
-The following principles are treated as permanent project rules.
+The project defines three canonical data stages.
 
-### 6.1 Reproducibility over convenience
+### `data/raw/`
 
-Every important result should be reproducible from:
+Original source-data snapshots.
+
+Properties:
+
+- immutable;
+- never manually edited;
+- preserve the representation received from the original source;
+- serve as the reproducibility starting point.
+
+### `data/interim/`
+
+Reproducible intermediate datasets generated from raw data.
+
+Future examples may include:
+
+- normalized collision timestamps;
+- decoded categorical fields;
+- event-level KSI records;
+- cleaned coordinates;
+- collision-to-spatial-unit mappings;
+- intermediate temporal aggregations.
+
+An interim dataset is not necessarily ready for machine learning.
+
+### `data/processed/`
+
+Canonical model-ready datasets generated by the project pipeline.
+
+The intended processed representation will eventually contain observations similar to:
+
+```text
+spatial_unit_id
+timestamp_bucket
+road / intersection features
+temporal features
+historical features
+target
+```
+
+Dataset files are excluded from normal Git tracking.
+
+Repository structure, documentation, notebooks, metadata, and source code remain version controlled.
+
+Further data-specific rules are documented in:
+
+[`data/README.md`](data/README.md)
+
+---
+
+## 11. Architecture Principles
+
+The following principles are permanent project rules.
+
+### 11.1 Reproducibility over convenience
+
+Every important result must be reproducible from:
 
 ```text
 source data
@@ -178,7 +414,9 @@ documented configuration
 
 Manual transformations that cannot be reproduced programmatically are not part of the canonical pipeline.
 
-### 6.2 Raw data are immutable
+---
+
+### 11.2 Raw data are immutable
 
 Files stored under:
 
@@ -186,17 +424,17 @@ Files stored under:
 data/raw/
 ```
 
-represent source-data snapshots.
-
-They must not be edited manually after ingestion.
+must never be manually edited after ingestion.
 
 Any correction, decoding, filtering, normalization, or transformation must be performed by project code and written to a downstream data stage.
 
-### 6.3 Generated datasets must be reproducible
+---
+
+### 11.3 Generated datasets must be reproducible
 
 Every non-raw dataset must be reproducible from upstream data and project code.
 
-The intended data lineage is:
+The canonical data lineage is:
 
 ```text
 raw
@@ -206,19 +444,32 @@ interim
 processed
 ```
 
-### 6.4 Notebooks are for investigation
+---
+
+### 11.4 Notebooks are for investigation
 
 The `notebooks/` directory is intended for:
 
+- data feasibility analysis;
 - exploratory data analysis;
 - hypothesis testing;
 - visualization;
 - temporary investigation;
 - error analysis.
 
-Notebooks must not become the only implementation of canonical preprocessing, feature engineering, model training, or evaluation logic.
+Notebooks must not become the only implementation of canonical:
 
-Once experimental logic becomes part of the project pipeline, it should move into `src/road_risk/`.
+- preprocessing;
+- dataset construction;
+- feature engineering;
+- model training;
+- evaluation.
+
+Once experimental logic becomes part of the canonical project pipeline, it must move into:
+
+```text
+src/road_risk/
+```
 
 The intended dependency direction is:
 
@@ -230,7 +481,9 @@ src/road_risk
 
 and never the reverse.
 
-### 6.5 Canonical logic lives in `src`
+---
+
+### 11.5 Canonical logic lives in `src`
 
 Reusable project logic belongs under:
 
@@ -238,156 +491,91 @@ Reusable project logic belongs under:
 src/road_risk/
 ```
 
-The package will grow only when new responsibilities are actually implemented.
+The package grows only when a new responsibility is actually implemented.
 
-Empty architectural layers are not created only because they may be useful later.
+Empty architectural layers are not created merely because they might become useful later.
 
-### 6.6 Architecture grows with the project
+---
+
+### 11.6 Architecture grows with the project
 
 New modules and infrastructure are introduced only when there is a concrete requirement for them.
 
-For example, directories for:
+Future areas such as:
 
 ```text
-features
-modeling
-evaluation
-tests
-api
-db
-monitoring
+features/
+modeling/
+evaluation/
+tests/
+api/
+db/
+monitoring/
 ```
 
-will be introduced when the corresponding project stage begins.
-
-This avoids speculative architecture and keeps the repository aligned with the actual implementation.
-
-### 6.7 Documentation must reflect reality
-
-README files, metrics, architecture descriptions, and experiment reports must describe the current implemented state.
-
-Future components must be explicitly marked as planned rather than presented as completed work.
+will be introduced only when the corresponding project stage begins.
 
 ---
 
-## 7. Data Lifecycle
+### 11.7 Documentation must reflect reality
 
-The project currently defines three canonical data stages.
+README files, metrics, architecture descriptions, experiment reports, and portfolio claims must describe the actual implemented state.
 
-### `data/raw/`
+Future components must be explicitly marked as planned.
 
-Original source-data snapshots.
-
-Properties:
-
-- immutable;
-- not manually edited;
-- preserves the original representation received from the source;
-- serves as the reproducibility starting point.
-
-### `data/interim/`
-
-Reproducible intermediate datasets generated from raw data.
-
-Possible future examples include:
-
-- decoded accident records;
-- normalized timestamps;
-- cleaned records;
-- records assigned to road identifiers;
-- intermediate segment mappings.
-
-An interim dataset is not necessarily ready for machine learning.
-
-### `data/processed/`
-
-Canonical model-ready datasets generated by the project pipeline.
-
-The intended processed representation will eventually contain observations similar to:
-
-```text
-segment_id
-timestamp_bucket
-road and temporal features
-historical features
-target
-```
-
-The exact schema has not yet been finalized.
-
-Dataset files are excluded from normal Git tracking. Repository structure, metadata, documentation, and code remain version controlled.
-
-Further data-specific rules are documented in:
-
-```text
-data/README.md
-```
+Unperformed experiments must never be described as completed work.
 
 ---
 
-## 8. Data Source Status
+## 12. Dataset Construction Contract
 
-The primary accident-data source planned for the first implementation stage is the Japanese National Police Agency open traffic-accident dataset.
+The collision datasets contain recorded positive events.
 
-NPA open-data portal:
+They do not directly provide the final binary classification table required by the project.
 
-https://www.npa.go.jp/publications/statistics/koutsuu/opendata/index_opendata.html
-
-The current project specification considers multi-year NPA accident data as the initial event source.
-
-Before modeling begins, the implementation must validate:
-
-- available event timestamps;
-- location-related fields;
-- road and intersection context;
-- source code tables and categorical definitions;
-- temporal coverage;
-- accident prevalence;
-- reproducibility of mapping events to road units.
-
-Road metadata, weather data, and traffic-related information will be incorporated only after their sources, licensing, temporal availability, and compatibility with the prediction task have been validated.
-
-No external data source is considered part of the implemented pipeline until it has actually been ingested and documented.
-
----
-
-## 9. Dataset Construction Contract
-
-The source accident dataset contains positive events: recorded accidents.
-
-It does not directly provide a ready-made binary classification table.
-
-The project therefore intends to construct a canonical observation grid:
+The project must therefore construct a canonical observation grid:
 
 ```text
-road segment × time window
+spatial unit × time window
 ```
 
-Accident events will then be mapped to the corresponding observations.
+Collision events will then be assigned to their corresponding observations.
 
 Conceptually:
 
 ```text
-accident in segment-time window
+qualifying collision in spatial-time window
         → target = 1
 
-no accident in segment-time window
+no qualifying collision in spatial-time window
         → target = 0
 ```
 
-This dataset-construction step is a central part of the project rather than a preprocessing detail.
+This dataset-construction step is a core ML-engineering problem rather than a minor preprocessing task.
 
-The methodology for generating negative observations must be deterministic, documented, and reproducible.
+### Negative observations
+
+Negative examples must:
+
+- correspond to valid exposure opportunities;
+- be constructed deterministically;
+- follow the same spatial and temporal unit as positive observations;
+- avoid arbitrary sampling rules that redefine the task;
+- be reproducible from documented code.
+
+Week 1 established event-source feasibility.
+
+Week 2 is responsible for turning the positive collision events into a reproducible pilot observation table.
 
 ---
 
-## 10. Leakage and Validation Policy
+## 13. Leakage Policy
 
 Preventing data leakage is a primary methodological requirement.
 
 ### Historical information
 
-Any feature representing historical information must only use data available strictly before the prediction timestamp.
+Any feature representing historical information must use only information available strictly before the prediction timestamp.
 
 For example:
 
@@ -395,17 +583,27 @@ For example:
 historical_accident_count_30d
 ```
 
-for an observation at time `t` must not contain information from `t` or any future timestamp.
+for an observation at time `t` must not contain information from time `t` or any future timestamp.
 
-### Dataset splitting
+---
 
-Random row-level train/test splitting is not considered sufficient for the final evaluation.
+### Future external information
+
+Weather, traffic, and other time-varying features must reflect only information that would have been available at the intended prediction time.
+
+Actual future observations must not be used as inference-time predictors unless the real application would have had access to them.
+
+---
+
+## 14. Validation Policy
+
+Random row-level train/test splitting is not considered sufficient for final model evaluation.
 
 The intended evaluation strategy is:
 
 - chronological separation between training and final testing;
 - temporal cross-validation or blocked temporal validation inside the training period;
-- an additional grouped or geographical evaluation where appropriate.
+- grouped or geographical evaluation where appropriate.
 
 ### Final test set
 
@@ -414,17 +612,18 @@ The final chronological test period must remain untouched during:
 - feature selection;
 - model selection;
 - hyperparameter tuning;
+- threshold selection;
 - calibration-strategy selection.
 
-It should be evaluated only after the modeling decisions have been finalized.
+It should be evaluated only after modeling decisions have been finalized.
 
 ---
 
-## 11. Planned Evaluation Metrics
+## 15. Planned Evaluation Metrics
 
-Because road accidents are rare events, accuracy will not be treated as the primary model-quality metric.
+Road accidents and serious collisions are rare events.
 
-The current evaluation contract prioritizes:
+For this reason, raw accuracy will not be used as the primary measure of model quality.
 
 ### Primary metric
 
@@ -432,15 +631,13 @@ The current evaluation contract prioritizes:
 PR-AUC
 ```
 
-Precision-Recall AUC is better aligned with rare-event classification than raw accuracy.
-
 ### Secondary metrics
 
 Planned secondary measures include:
 
 - Recall at top-K risk;
 - Brier score;
-- probability calibration analysis;
+- probability calibration;
 - precision and recall at selected operating points;
 - slice-based error analysis.
 
@@ -448,18 +645,19 @@ Potential evaluation slices include:
 
 - rain vs. dry conditions;
 - day vs. night;
-- intersections vs. non-intersections;
-- common vs. rare regions or road contexts.
+- intersection-context categories;
+- common vs. rare spatial units;
+- different road-context groups.
 
 No metric values will be reported until they have been produced by the implemented validation pipeline.
 
 ---
 
-## 12. Probability and Risk Interpretation
+## 16. Probability and Risk Interpretation
 
 A rare event may have a low absolute predicted probability even when it is substantially riskier than other observations.
 
-For this reason, future outputs are expected to distinguish between:
+Future outputs are therefore expected to distinguish between:
 
 ```text
 raw / calibrated probability
@@ -468,21 +666,22 @@ raw / calibrated probability
 and:
 
 ```text
-relative risk or ranking
+relative risk / ranking
 ```
 
-The project will avoid interpreting a low numerical probability as evidence that a road segment is safe.
+A low numerical probability must not be interpreted as evidence that a location is safe.
 
-Likewise, a high relative-risk rank will not be interpreted as certainty that an accident will occur.
+A high relative-risk rank must not be interpreted as certainty that a collision will occur.
 
 ---
 
-## 13. Reproducibility Policy
+## 17. Reproducibility Policy
 
 The project is intended to maintain traceability between:
 
 ```text
-data
+source data
+→ processed data
 → features
 → experiment
 → model
@@ -491,7 +690,8 @@ data
 
 As the implementation grows, reproducibility metadata is expected to include:
 
-- source-data version or snapshot;
+- source-data snapshot;
+- source download date;
 - preprocessing version;
 - feature schema;
 - train/validation/test boundaries;
@@ -501,13 +701,11 @@ As the implementation grows, reproducibility metadata is expected to include:
 - Git commit identifier;
 - model version.
 
-A model result without enough information to reproduce the corresponding experiment should not be treated as a final project result.
+A model result without enough information to reproduce the corresponding experiment is not considered a final project result.
 
 ---
 
-## 14. Python Project Structure
-
-The project uses a standard Python package with a `src` layout.
+## 18. Python Project Structure
 
 ### Repository name
 
@@ -527,29 +725,16 @@ road-risk-intelligence
 road_risk
 ```
 
-These names intentionally differ in formatting because Python import identifiers cannot contain hyphens.
+The project uses:
 
-The project currently uses:
-
-- Python 3.11;
+- Python 3.11 as the current development environment;
 - `setuptools` as the build backend;
-- `pyproject.toml` for package metadata and build configuration.
+- `pyproject.toml` for package metadata and build configuration;
+- editable package installation during development.
 
 ---
 
-## 15. Development Environment
-
-### Requirements
-
-Current bootstrap requirements:
-
-```text
-Python 3.11
-```
-
-Runtime ML dependencies have not yet been added because the implementation has not reached the data-analysis stage.
-
-Dependencies will be introduced when they become actual project requirements.
+## 19. Development Environment
 
 ### Create a virtual environment
 
@@ -557,13 +742,13 @@ Dependencies will be introduced when they become actual project requirements.
 python -m venv .venv
 ```
 
-Activate it on Windows PowerShell:
+### Activate on Windows PowerShell
 
 ```powershell
 .venv\Scripts\Activate.ps1
 ```
 
-Activate it on Linux or macOS:
+### Activate on Linux or macOS
 
 ```bash
 source .venv/bin/activate
@@ -591,58 +776,96 @@ The local `.venv/` directory is development-machine state and is not part of the
 
 ---
 
-## 16. Planned Project Evolution
+## 20. Development Roadmap
 
 The project is developed incrementally.
 
-The current architecture intentionally contains only components that already have a defined responsibility.
+### Week 1 — Data feasibility
 
-The next major stages are expected to include:
+**Status: completed**
 
-1. source-data schema and code-table analysis;
-2. deterministic accident-data ingestion;
-3. event cleaning and validation;
-4. road-segment/time-grid construction;
-5. positive and negative observation generation;
-6. exploratory data analysis;
-7. leakage-safe feature engineering;
-8. historical and linear baselines;
-9. multiple model-family comparison;
-10. temporal and geographical validation;
-11. calibration and error analysis;
-12. final untouched test evaluation.
+Completed work:
 
-Production-oriented layers such as an API, database-backed prediction history, containerization, CI, and monitoring are deliberately deferred until the ML pipeline has been validated.
+- inspected Toronto Traffic Collisions data;
+- inspected Toronto KSI collision data;
+- documented data coverage and licensing;
+- distinguished row-level and event-level semantics;
+- verified spatial-coordinate availability;
+- checked event-level consistency of important road-context fields;
+- tested a strict signalized-intersection pilot definition;
+- selected the KSI dataset as the pilot serious-collision outcome source;
+- recorded an explicit feasibility decision: **GO**.
 
 ---
 
-## 17. Responsible Use and Limitations
+### Week 2 — Pilot dataset construction
 
-Road-accident prediction is a safety-sensitive and highly imbalanced modeling problem.
+**Status: next milestone**
 
-The project follows several interpretation constraints.
+The next stage is expected to establish:
+
+1. the canonical spatial unit;
+2. the canonical event-level KSI table;
+3. a defensible time-bucket granularity;
+4. deterministic mapping from events to spatial-time observations;
+5. valid negative observations;
+6. target prevalence;
+7. the first reusable ingestion and dataset-construction logic inside `src/road_risk/data/`.
+
+No feature engineering or model training should begin before the observation unit, target construction, and leakage boundaries are explicit.
+
+---
+
+### Later modeling stages
+
+Planned later work includes:
+
+- exploratory data analysis;
+- leakage-safe feature engineering;
+- historical-frequency baseline;
+- Logistic Regression baseline;
+- additional tree-based model families;
+- temporal validation;
+- geographical or grouped validation;
+- probability calibration;
+- error analysis;
+- final untouched test evaluation.
+
+Production-oriented layers such as API serving, PostgreSQL integration, Docker, CI, and monitoring are intentionally deferred until the ML pipeline has been validated.
+
+---
+
+## 21. Responsible Use and Limitations
+
+Road-accident risk estimation is a safety-sensitive and highly imbalanced modeling problem.
 
 ### Rare-event uncertainty
 
-Even a well-performing model may assign relatively low absolute probabilities because accidents are rare.
+Even a well-performing model may assign relatively low absolute probabilities because serious collisions are rare.
 
 ### Exposure confounding
 
-Historical accident counts may reflect traffic exposure as well as underlying road risk.
+Historical collision counts may reflect traffic volume and exposure in addition to underlying road risk.
 
 Traffic-related variables must therefore be interpreted carefully.
 
 ### Spatial bias
 
-Different regions, road classes, and reporting processes may follow different data distributions.
+Different areas, road classes, infrastructure types, and reporting processes may follow different distributions.
 
-Performance in one geography does not automatically imply performance in another.
+Performance in Toronto does not automatically imply performance in another city or country.
 
 ### Temporal drift
 
-Road infrastructure, traffic behavior, weather patterns, and regulations change over time.
+Road infrastructure, traffic behavior, weather conditions, regulations, and reporting systems change over time.
 
-Historical performance does not guarantee future performance.
+Historical model performance does not guarantee future performance.
+
+### Source-definition risk
+
+The inspected Toronto collision datasets serve different analytical purposes.
+
+The general Traffic Collisions dataset must not be treated as equivalent to the KSI dataset when defining a serious-collision outcome.
 
 ### Human-in-the-loop use
 
@@ -652,30 +875,41 @@ They must not directly trigger safety-critical actions without additional human 
 
 ### Privacy
 
-The modeling objective does not require personally identifiable information about accident participants.
+The modeling objective does not require personally identifiable information about collision participants.
 
-Unnecessary personal data should not be introduced into datasets, model inputs, databases, or logs.
+Unnecessary personal information should not be introduced into:
+
+- datasets;
+- model inputs;
+- databases;
+- logs;
+- public artifacts.
 
 ---
 
-## 18. Project Quality Rules
+## 22. Project Quality Rules
 
-The following rules apply throughout development:
+The following rules apply throughout development.
 
 1. Do not report model results that have not been reproduced.
 2. Do not use the final test set for model or feature selection.
 3. Do not calculate historical features using future information.
 4. Do not manually modify raw source data.
 5. Do not keep canonical pipeline logic only inside notebooks.
-6. Do not duplicate preprocessing logic across notebooks and production code.
-7. Do not introduce infrastructure without a concrete project requirement.
-8. Do not claim that the system predicts individual accidents with certainty.
-9. Do not describe unfinished components as implemented.
-10. Keep public project documentation in English.
+6. Do not duplicate preprocessing logic across notebooks and reusable source code.
+7. Do not generate negative observations using arbitrary logic disconnected from valid exposure units.
+8. Do not introduce infrastructure without a concrete project requirement.
+9. Do not claim that the system predicts individual collisions with certainty.
+10. Do not describe unfinished components as implemented.
+11. Keep public project documentation in English.
+12. Record material assumptions explicitly.
+13. Record unresolved semantic questions explicitly.
+14. Distinguish exploratory analysis from canonical pipeline logic.
+15. Keep the final test set isolated from iterative modeling decisions.
 
 ---
 
-## 19. References
+## 23. References
 
 ### Academic foundation
 
@@ -687,8 +921,12 @@ Nagoya University transportation research thesis list:
 
 https://www.trans.civil.nagoya-u.ac.jp/english/09.html
 
-### Primary planned accident-data source
+### Current pilot data sources
 
-National Police Agency of Japan — Traffic Accident Open Data:
+**Toronto Police Service Public Safety Data Portal**  
+Traffic Collisions Open Data — ASR-T-TBL-001
 
-https://www.npa.go.jp/publications/statistics/koutsuu/opendata/index_opendata.html
+**City of Toronto Open Data**  
+Motor Vehicle Collisions with Killed or Seriously Injured (KSI) Data
+
+The applicable source attribution and Open Government Licence requirements must be preserved when the data are used or redistributed.
