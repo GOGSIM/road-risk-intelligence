@@ -10,7 +10,7 @@ output is a relative-risk signal that can support human road-safety review.
 
 ## Current Status
 
-**Current milestone: Week 2 event-level KSI cleaning and validation completed.**
+**Current milestone: Week 3 signalized-intersection-day learning prototype completed.**
 
 The repository now contains:
 
@@ -19,10 +19,11 @@ The repository now contains:
 - exploratory feasibility analysis for Toronto collision data;
 - event-level cleaning logic for the Toronto KSI dataset;
 - SQL validation of the cleaned event-level table;
+- a first in-notebook X/y prototype for signalized-intersection daily risk;
 - one reusable source module, `road_risk.data.events`.
 
-No machine learning model has been trained yet. No model metrics are reported at
-this stage.
+No machine learning model has been trained yet. No model-performance metrics are
+reported at this stage.
 
 | Component | Status |
 | --- | --- |
@@ -37,20 +38,32 @@ this stage.
 | Event-level data dictionary | Documented in notebook |
 | SQL validation of event-level table | Completed |
 | Reusable event-table builder in `src` | Implemented |
+| Week 3 signalized-intersection-day prototype | Completed in notebook |
+| Prototype observation grid | Implemented in notebook |
+| Prototype target prevalence check | Completed |
 | Canonical spatial unit definition | Not finalized |
 | Time-bucket definition | Not finalized |
-| Negative-observation generation | Not started |
-| Feature engineering | Not started |
+| Canonical negative-observation generation | Not finalized |
+| Prototype feature columns | Started in notebook |
+| Canonical feature engineering pipeline | Not started |
 | Model training and evaluation | Not started |
 | API, database, deployment, monitoring | Deferred |
 
 ## Project Scope
 
-The intended prediction unit is:
+The long-term intended prediction unit is:
 
 ```text
 road spatial unit x time window
 ```
+
+The Week 3 prototype uses a narrower provisional unit:
+
+```text
+signalized intersection x prediction day
+```
+
+with a one-day prediction horizon.
 
 The intended modeling task is:
 
@@ -59,8 +72,9 @@ rare-event binary classification + relative-risk ranking
 ```
 
 The final spatial unit, time bucket, prediction horizon, negative-observation
-construction, and validation scheme are still open design decisions. The current
-work establishes whether the source data can support that later dataset.
+construction, and validation scheme are still open design decisions. Week 3
+tests one feasible formulation, but it is not yet the canonical production
+dataset definition.
 
 ## Academic Foundation
 
@@ -169,6 +183,53 @@ Validated event-level results:
 
 SQL validation independently confirmed the main event-table invariants.
 
+### Week 3: Signalized-Intersection-Day Prototype
+
+Week 3 builds the first learning-table prototype from the event-level KSI table.
+
+Prototype task definition:
+
+```text
+prediction unit = one signalized intersection x one prediction day
+prediction horizon = 1 day
+target = 1 if a KSI collision is registered at the intersection on the next day
+target = 0 otherwise
+```
+
+For this prototype, an intersection is represented by a canonical sorted pair of
+`stname1` and `stname2`:
+
+```text
+street_a | street_b
+```
+
+GIS, OpenStreetMap, and Ontario Road Network geometries are not used yet. KSI
+events with missing `stname2` are excluded because the intersection cannot be
+identified reliably from the available street-name fields.
+
+Key prototype results:
+
+- 2,252 strict signalized-intersection KSI events from Week 1;
+- 2,233 prototype events after excluding events without `stname2`;
+- 1,430 unique prototype `intersection_key` values;
+- 2,231 positive intersection-day observations;
+- 1,103 candidate intersections known before 2018;
+- September 2018 prototype window with 30 prediction days;
+- 33,090 candidate intersection-day observations;
+- 10 covered positive observations and 33,080 negative observations;
+- prototype target prevalence of approximately 0.0302%.
+
+The prototype includes early feature columns such as:
+
+- `day_of_week`;
+- `historical_ksi_count`, calculated using only events before the prediction
+  date.
+
+Important limitation: the Week 3 candidate universe is limited to signalized
+intersections that appeared in KSI history before 2018. It is not a complete
+inventory of Toronto signalized intersections. A complete spatial inventory is
+required before the dataset definition can be treated as canonical.
+
 ## Notebooks
 
 The current analysis notebooks are:
@@ -178,6 +239,7 @@ The current analysis notebooks are:
 | `notebooks/01_data_feasibility.ipynb` | Inspect source datasets and decide whether the Toronto pilot is feasible |
 | `notebooks/02_event_level_cleaning.ipynb` | Transform person-level KSI records into one row per collision event |
 | `notebooks/03_sql_validation.ipynb` | Validate the cleaned event-level table with SQL checks |
+| `notebooks/04_signalized_intersection_day_prototype.ipynb` | Build the first signalized-intersection-day X/y prototype |
 
 Notebooks are investigative artifacts. Canonical reusable logic should move into
 `src/road_risk/` when it becomes part of the project pipeline.
@@ -227,7 +289,8 @@ road-risk-intelligence/
 |-- notebooks/
 |   |-- 01_data_feasibility.ipynb
 |   |-- 02_event_level_cleaning.ipynb
-|   `-- 03_sql_validation.ipynb
+|   |-- 03_sql_validation.ipynb
+|   `-- 04_signalized_intersection_day_prototype.ipynb
 |
 `-- src/
     `-- road_risk/
@@ -318,9 +381,14 @@ Current workflow:
    `data/interim/ksi_events.csv`.
 3. Run `notebooks/03_sql_validation.ipynb` to validate the event-level table
    with SQL checks.
+4. Run `notebooks/04_signalized_intersection_day_prototype.ipynb` to build the
+   first signalized-intersection-day X/y prototype.
 
 The resulting `data/interim/ksi_events.csv` is an intermediate dataset. It is
 not yet the final machine-learning observation table.
+
+The Week 3 X/y table is currently constructed inside the notebook and is not
+written as a canonical `data/processed/` artifact.
 
 ## Dataset Construction Contract
 
@@ -347,6 +415,19 @@ Negative observations must:
 - be constructed deterministically;
 - avoid arbitrary sampling rules that redefine the task;
 - be reproducible from documented code.
+
+Week 3 implements the first prototype version of this contract for September
+2018:
+
+```text
+candidate signalized intersections known before 2018
+x
+daily prediction dates from 2018-09-01 through 2018-09-30
+```
+
+This prototype is useful for validating target mechanics and leakage-safe
+historical features, but it is not yet the final dataset contract because the
+intersection universe is incomplete.
 
 ## Leakage and Validation Policy
 
@@ -393,16 +474,22 @@ validation strategy, and holdout procedure are implemented.
 - strict signalized-intersection pilot feasibility decision;
 - event-level KSI cleaning;
 - SQL validation of the event-level KSI table;
-- reusable `build_event_table()` implementation.
+- reusable `build_event_table()` implementation;
+- Week 3 signalized-intersection-day task definition;
+- first in-notebook X/y prototype for September 2018;
+- prototype leakage-safe historical count feature.
 
 ### Next
 
-- define the canonical spatial unit;
-- define the time-bucket granularity;
-- formalize event-to-observation assignment;
-- construct deterministic negative observations;
-- calculate target prevalence;
-- move stable dataset-construction logic into `src/road_risk/data/`.
+- obtain or construct a complete inventory of Toronto signalized intersections;
+- decide whether the canonical spatial unit should be street-name intersections,
+  geometry-backed intersections, or another spatial representation;
+- move stable observation-grid and target-construction logic into
+  `src/road_risk/data/`;
+- write a canonical processed dataset artifact when the dataset contract is
+  stable;
+- expand leakage-safe historical features beyond the prototype count feature;
+- define chronological train/validation/test boundaries.
 
 ### Later
 
