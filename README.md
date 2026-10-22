@@ -10,7 +10,7 @@ output is a relative-risk signal that can support human road-safety review.
 
 ## Current Status
 
-**Current milestone: Week 6 generalization checks and historical baseline completed.**
+**Current milestone: Week 7 temporal hyperparameter tuning completed.**
 
 The repository now contains:
 
@@ -26,9 +26,10 @@ The repository now contains:
 - a W5 notebook combining historical traffic counts, numerical and categorical
   preprocessing, and logistic regression in one scikit-learn pipeline;
 - a W6 notebook comparing that pipeline with a historical KSI-frequency
-  baseline on the same temporal splits.
+  baseline on the same temporal splits;
+- a W7 notebook tuning logistic-regression regularization with temporal CV.
 
-The W4-W6 results are exploratory. There is no untouched final test period,
+The W4-W7 results are exploratory. There is no untouched final test period,
 trained-model artifact, or deployed prediction service.
 
 | Component | Status |
@@ -58,6 +59,8 @@ trained-model artifact, or deployed prediction service.
 | W5 feature-enriched 2018 dataset | Generated locally |
 | Week 6 generalization and training-size checks | Completed in notebook |
 | Week 6 historical KSI-frequency baseline | Compared on temporal folds |
+| Week 7 logistic-regression `C` search | Completed in notebook |
+| Week 7 development validation | Completed; no meaningful gain observed |
 | Final dataset and spatial definition | Still under validation |
 | Untouched test evaluation | Not started |
 | API, database, deployment, monitoring | Deferred |
@@ -70,7 +73,7 @@ The long-term intended prediction unit is:
 road spatial unit x time window
 ```
 
-The W3-W6 pilots use a narrower unit:
+The W3-W7 pilots use a narrower unit:
 
 ```text
 signalized intersection x prediction day
@@ -85,10 +88,11 @@ rare-event binary classification + relative-risk ranking
 ```
 
 W4 uses Traffic Signals `id` as the intersection identifier and a daily
-observation grid; W5 adds traffic data and preprocessing to this dataset. This
-dataset is also used for the W6 model comparison. This is a reproducible pilot
-definition, not a finalized production dataset. The choice of spatial unit,
-broader time coverage, and final validation scheme remain open.
+observation grid; W5 adds traffic data and preprocessing to this dataset. W6
+compares models on this dataset, and W7 tunes the same logistic-regression
+pipeline. This is a reproducible pilot definition, not a finalized production
+dataset. The choice of spatial unit, broader time coverage, and final
+validation scheme remain open.
 
 ## Academic Foundation
 
@@ -391,6 +395,24 @@ Its training AP is higher than validation AP, but the small positive counts
 and variation across folds do not establish a stable generalization estimate.
 W6 does not evaluate a new final test period or save model predictions.
 
+### Week 7: Temporal Hyperparameter Tuning
+
+W7 loads `data/processed/intersection_day_2018_w5_features.csv` and uses the
+same four features and preprocessing pipeline as W5. `GridSearchCV` searches
+logistic-regression `C` values of 0.01, 0.1, 1, 10, and 100, scoring average
+precision on three `TimeSeriesSplit` folds built from unique training dates
+with a one-day gap. The best estimator is refitted on all training rows before
+evaluation on the October-December 2018 development validation period.
+
+| Configuration | Mean temporal CV AP | Development validation AP |
+| --- | ---: | ---: |
+| Best `C=0.1` | 0.000629 | 0.000372 |
+| W5 default `C=1.0` | 0.000626 | 0.000372 |
+
+The CV difference is small and validation AP is equal to six decimal places.
+W7 does not establish a meaningful improvement or evaluate a reserved final
+test period. No model artifact or new processed dataset is written.
+
 ## Notebooks
 
 The current analysis notebooks are:
@@ -404,12 +426,13 @@ The current analysis notebooks are:
 | `notebooks/05_traffic_signals_dataset.ipynb` | Inspect signal inventory, build W4 dataset, and evaluate an exploratory baseline |
 | `notebooks/06_categorical_pipeline.ipynb` | Add historical traffic volume and evaluate a numerical/categorical pipeline |
 | `notebooks/07_generalization_historical_baseline.ipynb` | Check W5 generalization and compare with historical KSI-frequency scores |
+| `notebooks/08_hyperparameter_tuning.ipynb` | Tune logistic-regression regularization with temporal CV |
 
 Notebooks are investigative artifacts. W4 dataset preparation is also present
 in a source script; the notebook and script should eventually share one
 implementation to prevent their logic from drifting apart. W5 feature joining,
 model fitting, and evaluation currently live in notebook 06; W6 comparison
-logic lives in notebook 07.
+and W7 tuning logic live in notebooks 07 and 08.
 
 ## Source Code
 
@@ -441,7 +464,7 @@ from road_risk.data.events import build_event_table
 Traffic Signals and interim KSI files, constructs the W4 grid and features,
 checks basic invariants, and writes the dataset and matching reports. It runs
 on import, so execute it as a script rather than importing it as a library
-function. Model fitting and validation currently live in notebooks 05-07.
+function. Model fitting and validation currently live in notebooks 05-08.
 
 ## Repository Structure
 
@@ -464,7 +487,8 @@ road-risk-intelligence/
 |   |-- 04_signalized_intersection_day_prototype.ipynb
 |   |-- 05_traffic_signals_dataset.ipynb
 |   |-- 06_categorical_pipeline.ipynb
-|   `-- 07_generalization_historical_baseline.ipynb
+|   |-- 07_generalization_historical_baseline.ipynb
+|   `-- 08_hyperparameter_tuning.ipynb
 |
 `-- src/
     `-- road_risk/
@@ -575,8 +599,11 @@ Current workflow:
 8. Run `notebooks/07_generalization_historical_baseline.ipynb` after notebook
    06. It evaluates the W5 pipeline and historical baseline; it does not create
    another processed dataset.
+9. Run `notebooks/08_hyperparameter_tuning.ipynb` using the same W5 feature
+   table to search `C` with temporal CV and evaluate the selected model on the
+   development validation period.
 
-Run notebooks 05-07 with the working directory set to `notebooks/` because
+Run notebooks 05-08 with the working directory set to `notebooks/` because
 their local paths start with `../data/`.
 
 The resulting `data/interim/ksi_events.csv` is an intermediate dataset. It is
@@ -657,18 +684,20 @@ W4 uses a chronological train/validation split and three earlier temporal
 folds. W5 keeps the same outer date split and uses date-based temporal
 cross-validation with the imputer, scaler, and encoder fitted inside each fold.
 W6 evaluates a historical baseline using training labels only within the same
-date splits. None of these experiments reserves a final test period. A future
-test period must remain untouched during feature selection, model selection,
-hyperparameter tuning, threshold selection, and calibration decisions.
+date splits. W7 selects `C` using temporal CV on training data and then checks
+the selected estimator on the 2018 development validation period. None of these
+experiments reserves a final test period. A future test period must remain
+untouched during feature selection, model selection, hyperparameter tuning,
+threshold selection, and calibration decisions.
 
 ## Planned Evaluation
 
 Because serious collisions are rare events, raw accuracy will not be a primary
 metric.
 
-The W4 notebook reports Recall@1% for its baseline. W5 and W6 report average
-precision, including a W6 comparison with historical KSI frequency. Further
-planned metrics include:
+The W4 notebook reports Recall@1% for its baseline. W5-W7 report average
+precision, including a historical KSI-frequency comparison and a regularization
+search. Further planned metrics include:
 
 - consistent average-precision and recall-at-top-K comparisons across baselines;
 - Brier score;
@@ -676,7 +705,7 @@ planned metrics include:
 - precision and recall at selected operating points;
 - slice-based error analysis.
 
-Current W4-W6 metrics describe only 2018 development data; they are not
+Current W4-W7 metrics describe only 2018 development data; they are not
 final generalization estimates.
 
 ## Roadmap
@@ -700,7 +729,8 @@ final generalization estimates.
 - W5 date-based temporal cross-validation and average-precision checks;
 - W5 feature-table export for downstream analysis;
 - W6 train/validation and training-size checks;
-- W6 historical-frequency baseline comparison on temporal folds.
+- W6 historical-frequency baseline comparison on temporal folds;
+- W7 temporal `C` search and development-validation check.
 
 ### Next
 
@@ -712,8 +742,8 @@ final generalization estimates.
 - reserve a chronological final test period outside the 2018 development sample;
 - consolidate notebook and script dataset preparation;
 - compare W4 and W5 on the same dates and metrics;
-- move W5 feature joining, model fitting, and W6 evaluation into reusable
-  source code.
+- move W5 feature joining, model fitting, W6 evaluation, and W7 tuning into
+  reusable source code.
 
 ### Later
 
