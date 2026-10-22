@@ -10,7 +10,7 @@ output is a relative-risk signal that can support human road-safety review.
 
 ## Current Status
 
-**Current milestone: Week 5 categorical pipeline and temporal validation completed.**
+**Current milestone: Week 6 generalization checks and historical baseline completed.**
 
 The repository now contains:
 
@@ -24,10 +24,12 @@ The repository now contains:
 - a reproducible 2018 intersection-day dataset builder in `src`;
 - an in-notebook logistic-regression baseline with temporal validation;
 - a W5 notebook combining historical traffic counts, numerical and categorical
-  preprocessing, and logistic regression in one scikit-learn pipeline.
+  preprocessing, and logistic regression in one scikit-learn pipeline;
+- a W6 notebook comparing that pipeline with a historical KSI-frequency
+  baseline on the same temporal splits.
 
-The W4 and W5 models and their metrics are exploratory. There is no untouched
-final test period, trained-model artifact, or deployed prediction service.
+The W4-W6 results are exploratory. There is no untouched final test period,
+trained-model artifact, or deployed prediction service.
 
 | Component | Status |
 | --- | --- |
@@ -53,6 +55,9 @@ final test period, trained-model artifact, or deployed prediction service.
 | Week 5 historical traffic-volume matching | Completed in notebook |
 | Week 5 numerical/categorical model pipeline | Completed in notebook |
 | Week 5 date-based temporal cross-validation | Completed in notebook |
+| W5 feature-enriched 2018 dataset | Generated locally |
+| Week 6 generalization and training-size checks | Completed in notebook |
+| Week 6 historical KSI-frequency baseline | Compared on temporal folds |
 | Final dataset and spatial definition | Still under validation |
 | Untouched test evaluation | Not started |
 | API, database, deployment, monitoring | Deferred |
@@ -65,7 +70,7 @@ The long-term intended prediction unit is:
 road spatial unit x time window
 ```
 
-The W3-W5 pilots use a narrower unit:
+The W3-W6 pilots use a narrower unit:
 
 ```text
 signalized intersection x prediction day
@@ -81,9 +86,9 @@ rare-event binary classification + relative-risk ranking
 
 W4 uses Traffic Signals `id` as the intersection identifier and a daily
 observation grid; W5 adds traffic data and preprocessing to this dataset. This
-is a reproducible pilot definition, not a finalized production dataset. The
-choice of spatial unit, broader time coverage, and final validation scheme
-remain open.
+dataset is also used for the W6 model comparison. This is a reproducible pilot
+definition, not a finalized production dataset. The choice of spatial unit,
+broader time coverage, and final validation scheme remain open.
 
 ## Academic Foundation
 
@@ -324,8 +329,9 @@ For modeling, the notebook selects the most recent pre-2018 `8R` measurement
 per intersection, averaging duplicate measurements on the same date. The
 resulting `historical_traffic_volume` is present on 498,011 of 823,217 W4
 observation rows (about 60.5%). Missing values remain missing until the model
-pipeline imputes them. W5 does not write a new processed dataset or a model
-artifact.
+pipeline imputes them. Notebook 06 now exports the eight-column feature table
+to `data/processed/intersection_day_2018_w5_features.csv`; no trained model
+artifact is saved.
 
 The model uses four features:
 
@@ -357,6 +363,34 @@ unseen categories at validation time and are ignored by the encoder. Traffic
 coverage, measurement age, matching quality, and the small number of positive
 events also limit interpretation.
 
+### Week 6: Generalization and Historical Baseline
+
+W6 reads the W5 feature table and repeats the same chronological split:
+613,223 training rows (81 positives) through 2018-09-29, a one-day gap, and
+207,736 validation rows (38 positives) from 2018-10-01 onward. The fitted W5
+pipeline has average precision (AP) of 0.000784 on its training rows and
+0.000372 on validation. In one experiment, fitting the same pipeline on a
+random 50% of training rows (40 positives) gives validation AP of 0.000357.
+The small difference from the full-data score does not establish a dependable
+learning-curve trend.
+
+The historical baseline assigns each intersection its observed mean `target`
+from the relevant training period, using the overall training rate for unseen
+IDs. It uses only labels from the training side of each split. On the outer
+validation period, baseline AP is 0.000182 versus 0.000372 for the W5 pipeline.
+
+| Temporal fold | Historical baseline AP | W5 pipeline AP |
+| --- | ---: | ---: |
+| 1 | 0.000131 | 0.000492 |
+| 2 | 0.000200 | 0.000420 |
+| 3 | 0.000189 | 0.000966 |
+| Mean | 0.000173 | 0.000626 |
+
+The pipeline ranks better than this baseline on all three development folds.
+Its training AP is higher than validation AP, but the small positive counts
+and variation across folds do not establish a stable generalization estimate.
+W6 does not evaluate a new final test period or save model predictions.
+
 ## Notebooks
 
 The current analysis notebooks are:
@@ -369,11 +403,13 @@ The current analysis notebooks are:
 | `notebooks/04_signalized_intersection_day_prototype.ipynb` | Build the first signalized-intersection-day X/y prototype |
 | `notebooks/05_traffic_signals_dataset.ipynb` | Inspect signal inventory, build W4 dataset, and evaluate an exploratory baseline |
 | `notebooks/06_categorical_pipeline.ipynb` | Add historical traffic volume and evaluate a numerical/categorical pipeline |
+| `notebooks/07_generalization_historical_baseline.ipynb` | Check W5 generalization and compare with historical KSI-frequency scores |
 
 Notebooks are investigative artifacts. W4 dataset preparation is also present
 in a source script; the notebook and script should eventually share one
 implementation to prevent their logic from drifting apart. W5 feature joining,
-model fitting, and evaluation currently live only in notebook 06.
+model fitting, and evaluation currently live in notebook 06; W6 comparison
+logic lives in notebook 07.
 
 ## Source Code
 
@@ -405,7 +441,7 @@ from road_risk.data.events import build_event_table
 Traffic Signals and interim KSI files, constructs the W4 grid and features,
 checks basic invariants, and writes the dataset and matching reports. It runs
 on import, so execute it as a script rather than importing it as a library
-function. Model fitting and validation currently live in notebooks 05 and 06.
+function. Model fitting and validation currently live in notebooks 05-07.
 
 ## Repository Structure
 
@@ -427,7 +463,8 @@ road-risk-intelligence/
 |   |-- 03_sql_validation.ipynb
 |   |-- 04_signalized_intersection_day_prototype.ipynb
 |   |-- 05_traffic_signals_dataset.ipynb
-|   `-- 06_categorical_pipeline.ipynb
+|   |-- 06_categorical_pipeline.ipynb
+|   `-- 07_generalization_historical_baseline.ipynb
 |
 `-- src/
     `-- road_risk/
@@ -533,9 +570,14 @@ Current workflow:
    inspect the matching diagnostics, rerun the dataset preparation, and run
    the baseline and temporal validation cells.
 7. Open `notebooks/06_categorical_pipeline.ipynb` from `notebooks/` to join
-   historical traffic counts to the W4 dataset and run the W5 pipeline. Run
-   notebooks 05 and 06 with the working directory set to `notebooks/` because
-   their local paths start with `../data/`.
+   historical traffic counts to the W4 dataset, run the W5 pipeline, and export
+   `data/processed/intersection_day_2018_w5_features.csv`.
+8. Run `notebooks/07_generalization_historical_baseline.ipynb` after notebook
+   06. It evaluates the W5 pipeline and historical baseline; it does not create
+   another processed dataset.
+
+Run notebooks 05-07 with the working directory set to `notebooks/` because
+their local paths start with `../data/`.
 
 The resulting `data/interim/ksi_events.csv` is an intermediate dataset. It is
 not yet the final machine-learning observation table.
@@ -547,6 +589,10 @@ data/processed/intersection_day_2018.csv
 data/processed/ksi_matching_exclusions.csv
 data/processed/ksi_matching_report.csv
 ```
+
+Notebook 06 additionally writes the ignored local file
+`data/processed/intersection_day_2018_w5_features.csv` with 823,217 rows and
+eight columns. Notebook 07 reads this file.
 
 Notebook 05 also writes `intersection_day_2018_09.csv`. Despite its suffix,
 the notebook's prediction window covers the full year 2018. The script output
@@ -610,17 +656,19 @@ The intended validation direction is:
 W4 uses a chronological train/validation split and three earlier temporal
 folds. W5 keeps the same outer date split and uses date-based temporal
 cross-validation with the imputer, scaler, and encoder fitted inside each fold.
-Neither week reserves a final test period. A future test period must remain
-untouched during feature selection, model selection, hyperparameter tuning,
-threshold selection, and calibration decisions.
+W6 evaluates a historical baseline using training labels only within the same
+date splits. None of these experiments reserves a final test period. A future
+test period must remain untouched during feature selection, model selection,
+hyperparameter tuning, threshold selection, and calibration decisions.
 
 ## Planned Evaluation
 
 Because serious collisions are rare events, raw accuracy will not be a primary
 metric.
 
-The W4 notebook reports Recall@1% for its baseline. W5 reports average
-precision for its pipeline. Further planned metrics include:
+The W4 notebook reports Recall@1% for its baseline. W5 and W6 report average
+precision, including a W6 comparison with historical KSI frequency. Further
+planned metrics include:
 
 - consistent average-precision and recall-at-top-K comparisons across baselines;
 - Brier score;
@@ -628,7 +676,7 @@ precision for its pipeline. Further planned metrics include:
 - precision and recall at selected operating points;
 - slice-based error analysis.
 
-Current W4 and W5 metrics describe only 2018 development data; they are not
+Current W4-W6 metrics describe only 2018 development data; they are not
 final generalization estimates.
 
 ## Roadmap
@@ -649,7 +697,10 @@ final generalization estimates.
 - reproducible 2018 intersection-day dataset and matching reports;
 - in-notebook logistic-regression baseline and temporal validation;
 - W5 historical traffic-volume join and numerical/categorical pipeline;
-- W5 date-based temporal cross-validation and average-precision checks.
+- W5 date-based temporal cross-validation and average-precision checks;
+- W5 feature-table export for downstream analysis;
+- W6 train/validation and training-size checks;
+- W6 historical-frequency baseline comparison on temporal folds.
 
 ### Next
 
@@ -658,15 +709,15 @@ final generalization estimates.
 - verify traffic-count metadata, `8R` meaning, measurement age, and coverage;
 - decide whether the final spatial unit needs geometry-backed matching;
 - expand leakage-safe features beyond weekday and historical KSI count;
-- reserve a chronological final test period outside the W4 development sample;
+- reserve a chronological final test period outside the 2018 development sample;
 - consolidate notebook and script dataset preparation;
 - compare W4 and W5 on the same dates and metrics;
-- move W5 feature joining, model fitting, and validation into reusable source code.
+- move W5 feature joining, model fitting, and W6 evaluation into reusable
+  source code.
 
 ### Later
 
 - richer leakage-safe feature engineering;
-- historical-frequency baseline comparison;
 - tree-based model experiments;
 - broader temporal and geographic validation;
 - probability calibration;
