@@ -10,7 +10,7 @@ output is a relative-risk signal that can support human road-safety review.
 
 ## Current Status
 
-**Current milestone: Week 7 temporal hyperparameter tuning completed.**
+**Current milestone: Week 8 linear-model exercise and coefficient inspection completed.**
 
 The repository now contains:
 
@@ -27,10 +27,12 @@ The repository now contains:
   preprocessing, and logistic regression in one scikit-learn pipeline;
 - a W6 notebook comparing that pipeline with a historical KSI-frequency
   baseline on the same temporal splits;
-- a W7 notebook tuning logistic-regression regularization with temporal CV.
+- a W7 notebook tuning logistic-regression regularization with temporal CV;
+- a W8 NumPy linear-regression exercise and inspection of the fitted
+  road-risk logistic-regression coefficients.
 
-The W4-W7 results are exploratory. There is no untouched final test period,
-trained-model artifact, or deployed prediction service.
+The W4-W8 road-risk results are exploratory. There is no untouched final test
+period, trained-model artifact, or deployed prediction service.
 
 | Component | Status |
 | --- | --- |
@@ -61,6 +63,8 @@ trained-model artifact, or deployed prediction service.
 | Week 6 historical KSI-frequency baseline | Compared on temporal folds |
 | Week 7 logistic-regression `C` search | Completed in notebook |
 | Week 7 development validation | Completed; no meaningful gain observed |
+| Week 8 NumPy linear-regression exercise | Completed on toy data |
+| Week 8 fitted-coefficient inspection | Completed in notebook |
 | Final dataset and spatial definition | Still under validation |
 | Untouched test evaluation | Not started |
 | API, database, deployment, monitoring | Deferred |
@@ -73,7 +77,7 @@ The long-term intended prediction unit is:
 road spatial unit x time window
 ```
 
-The W3-W7 pilots use a narrower unit:
+The W3-W8 road-risk experiments use a narrower unit:
 
 ```text
 signalized intersection x prediction day
@@ -90,9 +94,9 @@ rare-event binary classification + relative-risk ranking
 W4 uses Traffic Signals `id` as the intersection identifier and a daily
 observation grid; W5 adds traffic data and preprocessing to this dataset. W6
 compares models on this dataset, and W7 tunes the same logistic-regression
-pipeline. This is a reproducible pilot definition, not a finalized production
-dataset. The choice of spatial unit, broader time coverage, and final
-validation scheme remain open.
+pipeline. W8 inspects its coefficients. This is a reproducible pilot definition,
+not a finalized production dataset. The choice of spatial unit, broader time
+coverage, and final validation scheme remain open.
 
 ## Academic Foundation
 
@@ -413,6 +417,24 @@ The CV difference is small and validation AP is equal to six decimal places.
 W7 does not establish a meaningful improvement or evaluate a reserved final
 test period. No model artifact or new processed dataset is written.
 
+### Week 8: Linear Models and Coefficients
+
+`notebooks/09_linear_regression_numpy.ipynb` calculates the slope and intercept
+of a one-feature linear regression directly with NumPy on five small example
+points. It obtains `w = 0.6`, `b = 2.2`, and training MSE `0.48`; scikit-learn's
+`LinearRegression` gives the same values. This is a separate learning exercise,
+not a road-risk model or an evaluation on Toronto collisions.
+
+The updated `notebooks/08_hyperparameter_tuning.ipynb` also extracts the 18
+transformed feature names and coefficients from the tuned W7
+`LogisticRegression(C=0.1)` pipeline. The two scaled numerical features have
+positive fitted coefficients: `historical_ksi_count` (about 0.164) and
+`historical_traffic_volume` (about 0.159). These are conditional associations
+with the model's predicted log-odds, not causal effects. The one-hot calendar
+coefficients should be interpreted within their encoding and training-period
+context. W8 adds no new road-risk validation score, saved model, or processed
+dataset.
+
 ## Notebooks
 
 The current analysis notebooks are:
@@ -426,13 +448,15 @@ The current analysis notebooks are:
 | `notebooks/05_traffic_signals_dataset.ipynb` | Inspect signal inventory, build W4 dataset, and evaluate an exploratory baseline |
 | `notebooks/06_categorical_pipeline.ipynb` | Add historical traffic volume and evaluate a numerical/categorical pipeline |
 | `notebooks/07_generalization_historical_baseline.ipynb` | Check W5 generalization and compare with historical KSI-frequency scores |
-| `notebooks/08_hyperparameter_tuning.ipynb` | Tune logistic-regression regularization with temporal CV |
+| `notebooks/08_hyperparameter_tuning.ipynb` | Tune logistic-regression regularization and inspect fitted coefficients |
+| `notebooks/09_linear_regression_numpy.ipynb` | Derive one-feature linear regression with NumPy and compare with scikit-learn |
 
 Notebooks are investigative artifacts. W4 dataset preparation is also present
 in a source script; the notebook and script should eventually share one
 implementation to prevent their logic from drifting apart. W5 feature joining,
-model fitting, and evaluation currently live in notebook 06; W6 comparison
-and W7 tuning logic live in notebooks 07 and 08.
+model fitting, and evaluation currently live in notebook 06; W6 comparison,
+W7 tuning, and W8 coefficient inspection live in notebooks 07 and 08. The
+standalone W8 linear-regression exercise lives in notebook 09.
 
 ## Source Code
 
@@ -464,7 +488,8 @@ from road_risk.data.events import build_event_table
 Traffic Signals and interim KSI files, constructs the W4 grid and features,
 checks basic invariants, and writes the dataset and matching reports. It runs
 on import, so execute it as a script rather than importing it as a library
-function. Model fitting and validation currently live in notebooks 05-08.
+function. Road-risk model fitting and validation currently live in notebooks
+05-08; notebook 09 is a separate NumPy exercise.
 
 ## Repository Structure
 
@@ -488,7 +513,8 @@ road-risk-intelligence/
 |   |-- 05_traffic_signals_dataset.ipynb
 |   |-- 06_categorical_pipeline.ipynb
 |   |-- 07_generalization_historical_baseline.ipynb
-|   `-- 08_hyperparameter_tuning.ipynb
+|   |-- 08_hyperparameter_tuning.ipynb
+|   `-- 09_linear_regression_numpy.ipynb
 |
 `-- src/
     `-- road_risk/
@@ -545,7 +571,7 @@ python -m pip install -e .
 Install the analysis and modeling dependencies:
 
 ```powershell
-python -m pip install pandas jupyter scikit-learn
+python -m pip install numpy pandas jupyter scikit-learn
 ```
 
 The project metadata currently declares the package and Python version, but it
@@ -601,7 +627,10 @@ Current workflow:
    another processed dataset.
 9. Run `notebooks/08_hyperparameter_tuning.ipynb` using the same W5 feature
    table to search `C` with temporal CV and evaluate the selected model on the
-   development validation period.
+   development validation period. Its final cells display the tuned model's
+   transformed feature coefficients.
+10. Run `notebooks/09_linear_regression_numpy.ipynb` independently to reproduce
+    the W8 linear-regression exercise on toy data.
 
 Run notebooks 05-08 with the working directory set to `notebooks/` because
 their local paths start with `../data/`.
@@ -685,7 +714,8 @@ folds. W5 keeps the same outer date split and uses date-based temporal
 cross-validation with the imputer, scaler, and encoder fitted inside each fold.
 W6 evaluates a historical baseline using training labels only within the same
 date splits. W7 selects `C` using temporal CV on training data and then checks
-the selected estimator on the 2018 development validation period. None of these
+the selected estimator on the 2018 development validation period. W8 inspects
+that fitted model's coefficients without a new validation split. None of these
 experiments reserves a final test period. A future test period must remain
 untouched during feature selection, model selection, hyperparameter tuning,
 threshold selection, and calibration decisions.
@@ -697,7 +727,8 @@ metric.
 
 The W4 notebook reports Recall@1% for its baseline. W5-W7 report average
 precision, including a historical KSI-frequency comparison and a regularization
-search. Further planned metrics include:
+search. W8 inspects coefficients and reports no new road-risk performance
+metric. Further planned metrics include:
 
 - consistent average-precision and recall-at-top-K comparisons across baselines;
 - Brier score;
@@ -705,8 +736,9 @@ search. Further planned metrics include:
 - precision and recall at selected operating points;
 - slice-based error analysis.
 
-Current W4-W7 metrics describe only 2018 development data; they are not
-final generalization estimates.
+Current road-risk metrics describe only 2018 development data; they are not
+final generalization estimates. The W8 toy-data MSE is unrelated to road-risk
+performance.
 
 ## Roadmap
 
@@ -730,7 +762,9 @@ final generalization estimates.
 - W5 feature-table export for downstream analysis;
 - W6 train/validation and training-size checks;
 - W6 historical-frequency baseline comparison on temporal folds;
-- W7 temporal `C` search and development-validation check.
+- W7 temporal `C` search and development-validation check;
+- W8 NumPy linear-regression exercise and scikit-learn comparison;
+- W8 inspection of the tuned model's transformed feature coefficients.
 
 ### Next
 
@@ -742,6 +776,8 @@ final generalization estimates.
 - reserve a chronological final test period outside the 2018 development sample;
 - consolidate notebook and script dataset preparation;
 - compare W4 and W5 on the same dates and metrics;
+- assess coefficient stability across time and improve interpretability of
+  encoded calendar features;
 - move W5 feature joining, model fitting, W6 evaluation, and W7 tuning into
   reusable source code.
 
