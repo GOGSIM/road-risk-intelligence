@@ -561,6 +561,11 @@ final_dataset.to_csv(
     index=False,
 )
 
+matched_events.to_csv(
+    OUTPUT_DIR / "ksi_matched_events.csv",
+    index=False
+)
+
 unmatched_events.to_csv(
     OUTPUT_DIR / "ksi_matching_exclusions.csv",
     index=False,

@@ -10,7 +10,7 @@ output is a relative-risk signal that can support human road-safety review.
 
 ## Current Status
 
-**Current milestone: Week 8 linear-model exercise and coefficient inspection completed.**
+**Current milestone: Week 9 risk-feature engineering and ablation completed.**
 
 The repository now contains:
 
@@ -29,9 +29,11 @@ The repository now contains:
   baseline on the same temporal splits;
 - a W7 notebook tuning logistic-regression regularization with temporal CV;
 - a W8 NumPy linear-regression exercise and inspection of the fitted
-  road-risk logistic-regression coefficients.
+  road-risk logistic-regression coefficients;
+- a W9 notebook adding lagged KSI and weather features and evaluating feature
+  groups with development validation and temporal CV.
 
-The W4-W8 road-risk results are exploratory. There is no untouched final test
+The W4-W9 road-risk results are exploratory. There is no untouched final test
 period, trained-model artifact, or deployed prediction service.
 
 | Component | Status |
@@ -65,6 +67,8 @@ period, trained-model artifact, or deployed prediction service.
 | Week 7 development validation | Completed; no meaningful gain observed |
 | Week 8 NumPy linear-regression exercise | Completed on toy data |
 | Week 8 fitted-coefficient inspection | Completed in notebook |
+| Week 9 matched-event export and feature table | Generated locally |
+| Week 9 feature-group ablation | Completed in notebook |
 | Final dataset and spatial definition | Still under validation |
 | Untouched test evaluation | Not started |
 | API, database, deployment, monitoring | Deferred |
@@ -77,7 +81,7 @@ The long-term intended prediction unit is:
 road spatial unit x time window
 ```
 
-The W3-W8 road-risk experiments use a narrower unit:
+The W3-W9 road-risk experiments use a narrower unit:
 
 ```text
 signalized intersection x prediction day
@@ -94,7 +98,8 @@ rare-event binary classification + relative-risk ranking
 W4 uses Traffic Signals `id` as the intersection identifier and a daily
 observation grid; W5 adds traffic data and preprocessing to this dataset. W6
 compares models on this dataset, and W7 tunes the same logistic-regression
-pipeline. W8 inspects its coefficients. This is a reproducible pilot definition,
+pipeline. W8 inspects its coefficients, and W9 adds historical and weather
+features to the same observation grid. This is a reproducible pilot definition,
 not a finalized production dataset. The choice of spatial unit, broader time
 coverage, and final validation scheme remain open.
 
@@ -117,8 +122,8 @@ https://www.trans.civil.nagoya-u.ac.jp/english/09.html
 
 ## Data Sources
 
-The current pilot uses Toronto open data snapshots stored locally under
-`data/raw/`. Raw snapshots are excluded from Git.
+The pilot uses local collision, signal, traffic-count, and daily-weather
+snapshots under `data/raw/`. Raw snapshots are excluded from Git.
 
 ### Toronto Traffic Collisions Open Data
 
@@ -172,6 +177,18 @@ For its modeling feature, the W5 notebook selects measurements dated before
 2018. The exact meaning of the selected `count_duration` code `8R` and the
 availability of historical measurements at a past prediction date still need
 verification.
+
+### Toronto Daily Weather
+
+- Local inputs: `data/raw/en_climate_daily_ON_6158731_2017_P1D.csv` and
+  `data/raw/en_climate_daily_ON_6158731_2018_P1D.csv`
+- Observed rows: 730 daily records across 2017 and 2018
+- Station in the files: `TORONTO INTL A` (Climate ID `6158731`)
+- W9 fields: daily mean temperature and total precipitation
+
+W9 joins each prediction row to the previous day's observation. This is a
+single-station proxy for all intersections; the time at which each daily
+observation became available for prediction has not been verified.
 
 ## Main Findings So Far
 
@@ -435,6 +452,41 @@ coefficients should be interpreted within their encoding and training-period
 context. W8 adds no new road-risk validation score, saved model, or processed
 dataset.
 
+### Week 9: Risk Features and Ablation
+
+The W4 builder now also writes `data/processed/ksi_matched_events.csv` with
+1,706 matched events (`intersection_id`, `collision_id`, `event_date`). Notebook
+10 uses this output and the W5 feature table to construct 30-day and 365-day
+KSI counts per intersection. Both rolling counts shift daily events by one day,
+so they exclude the prediction date. The notebook adds a target-day weekend
+flag, traffic and weather missingness flags, and previous-day temperature and
+precipitation. The existing observation grid and target remain unchanged.
+
+The resulting `data/processed/intersection_day_2018_features.csv` has 823,217
+rows, 16 columns, and 119 positive targets. It supplies 11 model features
+across calendar, traffic, weather, and KSI-history groups. Traffic volume is
+missing on 325,206 rows; at least one weather field is missing on 6,767 rows.
+Numerical features are median-imputed and scaled, calendar categories are
+one-hot encoded, and binary flags pass through a `LogisticRegression(C=0.1)`
+pipeline. These preprocessing steps are fitted on training rows only.
+
+| Development validation experiment | Average precision |
+| --- | ---: |
+| All 11 features | 0.000389 |
+| Without calendar | 0.000326 |
+| Without traffic | 0.000332 |
+| Without weather | 0.000396 |
+| Without KSI history | 0.000493 |
+
+The split is the earlier 2018 training/validation split with a one-day gap.
+In three additional temporal CV folds, mean AP is 0.000976 with all features
+and 0.000484 without KSI history. Thus the apparent validation gain from
+removing KSI history is not consistent across the temporal folds. Weather has
+no clear benefit, and no feature group is established as universally helpful
+or harmful. The outcome matching rate, traffic coverage, single weather
+station, unverified external-data availability, and KSI reporting latency
+limit these results. No untouched final test has been evaluated.
+
 ## Notebooks
 
 The current analysis notebooks are:
@@ -450,6 +502,7 @@ The current analysis notebooks are:
 | `notebooks/07_generalization_historical_baseline.ipynb` | Check W5 generalization and compare with historical KSI-frequency scores |
 | `notebooks/08_hyperparameter_tuning.ipynb` | Tune logistic-regression regularization and inspect fitted coefficients |
 | `notebooks/09_linear_regression_numpy.ipynb` | Derive one-feature linear regression with NumPy and compare with scikit-learn |
+| `notebooks/10_risk_feature_engineering.ipynb` | Build lagged KSI and weather features; evaluate feature-group ablations |
 
 Notebooks are investigative artifacts. W4 dataset preparation is also present
 in a source script; the notebook and script should eventually share one
@@ -457,6 +510,7 @@ implementation to prevent their logic from drifting apart. W5 feature joining,
 model fitting, and evaluation currently live in notebook 06; W6 comparison,
 W7 tuning, and W8 coefficient inspection live in notebooks 07 and 08. The
 standalone W8 linear-regression exercise lives in notebook 09.
+W9 feature construction and ablation remain in notebook 10.
 
 ## Source Code
 
@@ -486,10 +540,11 @@ from road_risk.data.events import build_event_table
 
 `build_intersection_day.py` is an executable Pandas script. It reads the local
 Traffic Signals and interim KSI files, constructs the W4 grid and features,
-checks basic invariants, and writes the dataset and matching reports. It runs
-on import, so execute it as a script rather than importing it as a library
-function. Road-risk model fitting and validation currently live in notebooks
-05-08; notebook 09 is a separate NumPy exercise.
+checks basic invariants, and writes the dataset, matching reports, and matched
+KSI events used by W9. It runs on import, so execute it as a script rather than
+importing it as a library function. Road-risk model fitting and validation
+currently live in notebooks 05-08 and 10; notebook 09 is a separate NumPy
+exercise.
 
 ## Repository Structure
 
@@ -514,7 +569,8 @@ road-risk-intelligence/
 |   |-- 06_categorical_pipeline.ipynb
 |   |-- 07_generalization_historical_baseline.ipynb
 |   |-- 08_hyperparameter_tuning.ipynb
-|   `-- 09_linear_regression_numpy.ipynb
+|   |-- 09_linear_regression_numpy.ipynb
+|   `-- 10_risk_feature_engineering.ipynb
 |
 `-- src/
     `-- road_risk/
@@ -598,6 +654,8 @@ data/raw/Traffic_Collisions_Open_Data_8128730402587031536.csv
 data/raw/Motor Vehicle Collisions with KSI Data - 4326.csv
 data/raw/traffic-signals.csv
 data/raw/tmc_summary_data.csv
+data/raw/en_climate_daily_ON_6158731_2017_P1D.csv
+data/raw/en_climate_daily_ON_6158731_2018_P1D.csv
 ```
 
 Current workflow:
@@ -631,8 +689,12 @@ Current workflow:
    transformed feature coefficients.
 10. Run `notebooks/09_linear_regression_numpy.ipynb` independently to reproduce
     the W8 linear-regression exercise on toy data.
+11. Run `notebooks/10_risk_feature_engineering.ipynb` from `notebooks/` after
+    steps 5 and 7. It reads `data/processed/ksi_matched_events.csv`, the W5
+    feature table, and the two weather files; it writes the expanded W9 feature
+    table and evaluates the ablations.
 
-Run notebooks 05-08 with the working directory set to `notebooks/` because
+Run notebooks 05-08 and 10 with the working directory set to `notebooks/` because
 their local paths start with `../data/`.
 
 The resulting `data/interim/ksi_events.csv` is an intermediate dataset. It is
@@ -642,6 +704,7 @@ The W4 script writes these ignored, local files:
 
 ```text
 data/processed/intersection_day_2018.csv
+data/processed/ksi_matched_events.csv
 data/processed/ksi_matching_exclusions.csv
 data/processed/ksi_matching_report.csv
 ```
@@ -649,6 +712,10 @@ data/processed/ksi_matching_report.csv
 Notebook 06 additionally writes the ignored local file
 `data/processed/intersection_day_2018_w5_features.csv` with 823,217 rows and
 eight columns. Notebook 07 reads this file.
+
+Notebook 10 writes the ignored local file
+`data/processed/intersection_day_2018_features.csv` with 823,217 rows and 16
+columns. It reads `ksi_matched_events.csv` generated by the current W4 script.
 
 Notebook 05 also writes `intersection_day_2018_09.csv`. Despite its suffix,
 the notebook's prediction window covers the full year 2018. The script output
@@ -715,7 +782,10 @@ cross-validation with the imputer, scaler, and encoder fitted inside each fold.
 W6 evaluates a historical baseline using training labels only within the same
 date splits. W7 selects `C` using temporal CV on training data and then checks
 the selected estimator on the 2018 development validation period. W8 inspects
-that fitted model's coefficients without a new validation split. None of these
+that fitted model's coefficients without a new validation split. W9 uses
+strictly prior-day KSI counts and previous-day weather, then fits its
+preprocessing within each temporal training fold. Historical publication
+timing for external measurements still needs verification. None of these
 experiments reserves a final test period. A future test period must remain
 untouched during feature selection, model selection, hyperparameter tuning,
 threshold selection, and calibration decisions.
@@ -728,7 +798,8 @@ metric.
 The W4 notebook reports Recall@1% for its baseline. W5-W7 report average
 precision, including a historical KSI-frequency comparison and a regularization
 search. W8 inspects coefficients and reports no new road-risk performance
-metric. Further planned metrics include:
+metric. W9 reports average precision for feature-group ablations. Further
+planned metrics include:
 
 - consistent average-precision and recall-at-top-K comparisons across baselines;
 - Brier score;
@@ -764,22 +835,27 @@ performance.
 - W6 historical-frequency baseline comparison on temporal folds;
 - W7 temporal `C` search and development-validation check;
 - W8 NumPy linear-regression exercise and scikit-learn comparison;
-- W8 inspection of the tuned model's transformed feature coefficients.
+- W8 inspection of the tuned model's transformed feature coefficients;
+- W9 matched-event export, lagged feature table, and ablation experiments.
 
 ### Next
 
 - validate Traffic Signals inventory coverage and historical signal status;
 - review excluded KSI matches, especially `side2Street` and ambiguous keys;
 - verify traffic-count metadata, `8R` meaning, measurement age, and coverage;
+- verify weather publication timing and assess spatial coverage beyond one
+  station;
 - decide whether the final spatial unit needs geometry-backed matching;
-- expand leakage-safe features beyond weekday and historical KSI count;
+- validate the new historical and weather features across broader periods;
 - reserve a chronological final test period outside the 2018 development sample;
 - consolidate notebook and script dataset preparation;
 - compare W4 and W5 on the same dates and metrics;
 - assess coefficient stability across time and improve interpretability of
   encoded calendar features;
 - move W5 feature joining, model fitting, W6 evaluation, and W7 tuning into
-  reusable source code.
+  reusable source code;
+- move W9 feature construction and evaluation into reusable source code and
+  reassess feature groups across broader periods.
 
 ### Later
 
@@ -842,6 +918,9 @@ Current pilot data sources:
   ASR-T-TBL-001
 - City of Toronto Open Data, Motor Vehicle Collisions with Killed or Seriously
   Injured Data
+- local Traffic Signals inventory (`data/raw/traffic-signals.csv`)
+- local traffic-count summary (`data/raw/tmc_summary_data.csv`)
+- daily weather files for `TORONTO INTL A`, Climate ID `6158731`
 
-Source attribution and Open Government Licence requirements must be preserved
-when source data are used or redistributed.
+Verify the original publisher, attribution, and licence terms for each local
+snapshot before redistribution.
