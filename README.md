@@ -10,7 +10,7 @@ output is a relative-risk signal that can support human road-safety review.
 
 ## Current Status
 
-**Current milestone: Week 11 random-forest comparison completed.**
+**Current milestone: Week 12 gradient-boosting comparison completed.**
 
 The repository now contains:
 
@@ -35,9 +35,11 @@ The repository now contains:
 - a W10 notebook comparing decision-tree depths with temporal CV and previous
   road-risk baselines;
 - a W11 notebook comparing two random forests with the decision tree and
-  logistic regression on the same temporal splits.
+  logistic regression on the same temporal splits;
+- a W12 notebook comparing histogram gradient boosting with logistic regression
+  and a balanced random forest, then tuning the boosting model with temporal CV.
 
-The W4-W11 road-risk results are exploratory. There is no untouched final test
+The W4-W12 road-risk results are exploratory. There is no untouched final test
 period, trained-model artifact, or deployed prediction service.
 
 | Component | Status |
@@ -77,6 +79,8 @@ period, trained-model artifact, or deployed prediction service.
 | Week 10 comparison with earlier baselines | Completed in notebook |
 | Week 11 random-forest and class-weight comparison | Completed in notebook |
 | Week 11 temporal CV and development-validation check | Completed in notebook |
+| Week 12 histogram gradient-boosting search | Completed in notebook |
+| Week 12 model comparison and shortlist | Completed in notebook |
 | Final dataset and spatial definition | Still under validation |
 | Untouched test evaluation | Not started |
 | API, database, deployment, monitoring | Deferred |
@@ -89,7 +93,7 @@ The long-term intended prediction unit is:
 road spatial unit x time window
 ```
 
-The W3-W11 road-risk experiments use a narrower unit:
+The W3-W12 road-risk experiments use a narrower unit:
 
 ```text
 signalized intersection x prediction day
@@ -107,11 +111,11 @@ W4 uses Traffic Signals `id` as the intersection identifier and a daily
 observation grid; W5 adds traffic data and preprocessing to this dataset. W6
 compares models on this dataset, and W7 tunes the same logistic-regression
 pipeline. W8 inspects its coefficients, and W9 adds historical and weather
-features to the same observation grid. W10 tests a decision tree, and W11
-compares random forests against the tree and logistic regression on the W9
-features. This is a reproducible pilot definition, not a finalized production
-dataset. The choice of spatial unit, broader time coverage, and final validation
-scheme remain open.
+features to the same observation grid. W10 tests a decision tree, W11 compares
+random forests against the tree and logistic regression, and W12 adds histogram
+gradient boosting on the W9 features. This is a reproducible pilot definition,
+not a finalized production dataset. The choice of spatial unit, broader time
+coverage, and final validation scheme remain open.
 
 ## Academic Foundation
 
@@ -568,6 +572,42 @@ count (0.127754), and the traffic-missing flag (0.114420). They describe this
 fitted ensemble, not causal effects or stable predictive value. W11 saves no new
 dataset or model artifact and does not evaluate an untouched final test.
 
+### Week 12: Histogram Gradient Boosting and Model Shortlist
+
+Notebook 13 uses the W9 feature table and its 11 model features. It keeps the
+2018 chronological split of 613,223 training rows (81 positives), a one-day
+gap, and 207,736 development-validation rows (38 positives). Three date-based
+temporal folds evaluate average precision (AP), with preprocessing fitted inside
+each fold. The notebook reruns logistic regression (`C=0.1`) and the W11 balanced
+random forest alongside `HistGradientBoostingClassifier`.
+
+The initial boosting model uses `learning_rate=0.1`, `max_iter=100`, and
+`max_leaf_nodes=7`. A three-fold `GridSearchCV` then checks eight combinations
+of learning rate (0.05 or 0.1), boosting iterations (50 or 100), and maximum
+leaf nodes (3 or 7). The selected configuration is 0.1, 50, and 7, respectively.
+
+| Model | Mean temporal CV AP | Development-validation AP | Mean CV fit time (s) |
+| --- | ---: | ---: | ---: |
+| Logistic regression | 0.000976 | 0.000389 | 0.71 |
+| Tuned histogram gradient boosting | 0.000926 | 0.000326 | 2.74 |
+| Initial histogram gradient boosting | 0.000405 | Not evaluated | 1.96 |
+| Balanced random forest | 0.000285 | 0.000409 | 15.99 |
+
+Tuning raises the boosting model's mean CV AP from 0.000405 to 0.000926 and
+reduces its mean fold training AP from 0.014079 to 0.001870. Its CV AP varies
+substantially by fold (0.000149, 0.002361, 0.000267); most of the apparent gain
+is in the second fold. On development validation, tuned boosting trails both
+logistic regression and the balanced forest. The constant-score AP on that
+period is about 0.000183. Fit times depend on hardware and estimator parallelism.
+
+The development shortlist is logistic regression as the primary candidate,
+tuned histogram gradient boosting as a nonlinear candidate, and the balanced
+random forest as another comparator. The historical KSI-frequency baseline
+remains a reference. The reused development period, small positive counts, and
+selection of hyperparameters on these same folds limit model selection; no
+final model is chosen. W12 saves no new dataset or model artifact and does not
+evaluate an untouched final test.
+
 ## Notebooks
 
 The current analysis notebooks are:
@@ -586,6 +626,7 @@ The current analysis notebooks are:
 | `notebooks/10_risk_feature_engineering.ipynb` | Build lagged KSI and weather features; evaluate feature-group ablations |
 | `notebooks/11_decision_tree.ipynb` | Tune tree depth, inspect overfitting and feature importances, compare earlier baselines |
 | `notebooks/12_random_forest.ipynb` | Compare weighted and unweighted forests with logistic regression and a decision tree |
+| `notebooks/13_gradient_boosting.ipynb` | Tune histogram gradient boosting and compare it with logistic regression and a balanced random forest |
 
 Notebooks are investigative artifacts. W4 dataset preparation is also present
 in a source script; the notebook and script should eventually share one
@@ -595,7 +636,7 @@ W7 tuning, and W8 coefficient inspection live in notebooks 07 and 08. The
 standalone W8 linear-regression exercise lives in notebook 09.
 W9 feature construction and ablation remain in notebook 10; W10 tree modeling
 and evaluation remain in notebook 11; W11 forest comparison remains in notebook
-12.
+12; W12 boosting and model comparison remain in notebook 13.
 
 ## Source Code
 
@@ -628,7 +669,7 @@ Traffic Signals and interim KSI files, constructs the W4 grid and features,
 checks basic invariants, and writes the dataset, matching reports, and matched
 KSI events used by W9. It runs on import, so execute it as a script rather than
 importing it as a library function. Road-risk model fitting and validation
-currently live in notebooks 05-08 and 10-12; notebook 09 is a separate NumPy
+currently live in notebooks 05-08 and 10-13; notebook 09 is a separate NumPy
 exercise.
 
 ## Repository Structure
@@ -657,7 +698,8 @@ road-risk-intelligence/
 |   |-- 09_linear_regression_numpy.ipynb
 |   |-- 10_risk_feature_engineering.ipynb
 |   |-- 11_decision_tree.ipynb
-|   `-- 12_random_forest.ipynb
+|   |-- 12_random_forest.ipynb
+|   `-- 13_gradient_boosting.ipynb
 |
 `-- src/
     `-- road_risk/
@@ -787,8 +829,13 @@ Current workflow:
     W9 feature table, compares two fixed forest configurations and reruns
     baselines on temporal folds, then evaluates the selected forest on the 2018
     development validation period. It does not depend on notebook 11 output.
+14. Run `notebooks/13_gradient_boosting.ipynb` after notebook 10. It reads the
+    same feature table, compares boosting with logistic regression and the
+    balanced forest, tunes boosting on temporal folds, and evaluates selected
+    models on the 2018 development validation period. It does not depend on
+    notebooks 11 or 12 output.
 
-Run notebooks 05-08 and 10-12 with the working directory set to `notebooks/`
+Run notebooks 05-08 and 10-13 with the working directory set to `notebooks/`
 because their local paths start with `../data/`.
 
 The resulting `data/interim/ksi_events.csv` is an intermediate dataset. It is
@@ -884,9 +931,10 @@ experiments reserves a final test period. W10 tunes tree depth on temporal
 training folds and checks the selected tree on development validation. W11
 compares two fixed forest configurations on those temporal folds, reruns the
 logistic and tree baselines, and checks the selected forest on development
-validation. A future test period must remain untouched during feature
-selection, model selection, hyperparameter tuning, threshold selection, and
-calibration decisions.
+validation. W12 uses the same folds to tune boosting, then compares selected
+models on the previously reused development period. A future test period must
+remain untouched during feature selection, model selection, hyperparameter
+tuning, threshold selection, and calibration decisions.
 
 ## Planned Evaluation
 
@@ -898,7 +946,8 @@ precision, including a historical KSI-frequency comparison and a regularization
 search. W8 inspects coefficients and reports no new road-risk performance
 metric. W9 reports average precision for feature-group ablations. W10 reports
 average precision for tree depth and model comparison. W11 reports average
-precision for forest and baseline comparisons. Further planned metrics include:
+precision for forest and baseline comparisons. W12 reports average precision
+for boosting and its model shortlist. Further planned metrics include:
 
 - consistent average-precision and recall-at-top-K comparisons across baselines;
 - Brier score;
@@ -937,7 +986,8 @@ performance.
 - W8 inspection of the tuned model's transformed feature coefficients;
 - W9 matched-event export, lagged feature table, and ablation experiments;
 - W10 decision-tree depth search, overfitting check, and baseline comparison;
-- W11 random-forest class-weight comparison, temporal CV, and baseline rerun.
+- W11 random-forest class-weight comparison, temporal CV, and baseline rerun;
+- W12 histogram gradient-boosting search and development model shortlist.
 
 ### Next
 
@@ -950,6 +1000,8 @@ performance.
 - validate the new historical and weather features across broader periods;
 - recheck tree and forest performance and feature importance across broader
   periods;
+- evaluate the W12 shortlist with additional rare-event ranking metrics,
+  calibration, and error slices;
 - reserve a chronological final test period outside the 2018 development sample;
 - consolidate notebook and script dataset preparation;
 - compare W4 and W5 on the same dates and metrics;
@@ -963,8 +1015,7 @@ performance.
 ### Later
 
 - richer leakage-safe feature engineering;
-- gradient-boosting and other tree-ensemble experiments after the evaluation
-  design is stable;
+- further tree-ensemble experiments after the evaluation design is stable;
 - broader temporal and geographic validation;
 - probability calibration;
 - error analysis;
