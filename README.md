@@ -10,7 +10,7 @@ output is a relative-risk signal that can support human road-safety review.
 
 ## Current Status
 
-**Current milestone: Week 10 decision-tree experiment completed.**
+**Current milestone: Week 11 random-forest comparison completed.**
 
 The repository now contains:
 
@@ -33,9 +33,11 @@ The repository now contains:
 - a W9 notebook adding lagged KSI and weather features and evaluating feature
   groups with development validation and temporal CV;
 - a W10 notebook comparing decision-tree depths with temporal CV and previous
-  road-risk baselines.
+  road-risk baselines;
+- a W11 notebook comparing two random forests with the decision tree and
+  logistic regression on the same temporal splits.
 
-The W4-W10 road-risk results are exploratory. There is no untouched final test
+The W4-W11 road-risk results are exploratory. There is no untouched final test
 period, trained-model artifact, or deployed prediction service.
 
 | Component | Status |
@@ -73,6 +75,8 @@ period, trained-model artifact, or deployed prediction service.
 | Week 9 feature-group ablation | Completed in notebook |
 | Week 10 decision-tree depth search | Completed in notebook |
 | Week 10 comparison with earlier baselines | Completed in notebook |
+| Week 11 random-forest and class-weight comparison | Completed in notebook |
+| Week 11 temporal CV and development-validation check | Completed in notebook |
 | Final dataset and spatial definition | Still under validation |
 | Untouched test evaluation | Not started |
 | API, database, deployment, monitoring | Deferred |
@@ -85,7 +89,7 @@ The long-term intended prediction unit is:
 road spatial unit x time window
 ```
 
-The W3-W10 road-risk experiments use a narrower unit:
+The W3-W11 road-risk experiments use a narrower unit:
 
 ```text
 signalized intersection x prediction day
@@ -103,10 +107,11 @@ W4 uses Traffic Signals `id` as the intersection identifier and a daily
 observation grid; W5 adds traffic data and preprocessing to this dataset. W6
 compares models on this dataset, and W7 tunes the same logistic-regression
 pipeline. W8 inspects its coefficients, and W9 adds historical and weather
-features to the same observation grid. W10 tests a decision tree on the W9
+features to the same observation grid. W10 tests a decision tree, and W11
+compares random forests against the tree and logistic regression on the W9
 features. This is a reproducible pilot definition, not a finalized production
-dataset. The choice of spatial unit, broader time coverage, and final
-validation scheme remain open.
+dataset. The choice of spatial unit, broader time coverage, and final validation
+scheme remain open.
 
 ## Academic Foundation
 
@@ -527,6 +532,42 @@ temperature. These importances describe this fitted tree's splits, not causal
 effects or stable citywide risk drivers. W10 writes no new dataset or model
 artifact and does not evaluate an untouched final test.
 
+### Week 11: Random Forest and Bagging
+
+Notebook 12 reads the W9 feature table and keeps its 11 model features. It uses
+the same 2018 chronological split as W10: 613,223 training rows (81 positives),
+a one-day gap, and 207,736 development-validation rows (38 positives). Three
+date-based temporal folds assess average precision (AP), with preprocessing
+fitted inside each training fold. Both forests use 100 trees, `max_depth=5`,
+`min_samples_leaf=10`, `max_features="sqrt"`, and bootstrap sampling; the only
+difference is `class_weight=None` versus `class_weight="balanced"`. These are
+fixed configurations, not a hyperparameter search.
+
+The notebook reruns the depth-3 decision tree and logistic-regression baselines
+on the same folds. It evaluates the selected balanced forest on development
+validation; the unweighted forest is not evaluated on that period.
+
+| Model | Mean temporal CV AP | Development-validation AP |
+| --- | ---: | ---: |
+| Logistic regression | 0.000976 | 0.000389 |
+| Random forest, balanced | 0.000285 | 0.000409 |
+| Random forest, unweighted | 0.000272 | Not evaluated |
+| Decision tree | 0.000219 | 0.000242 |
+
+Both forests beat the single tree on each temporal fold, but logistic regression
+has the highest AP on every fold and remains the preferred development model by
+mean temporal CV AP. Class weighting raises the forest's mean CV AP by about
+4.8%, though the unweighted forest scores higher on the third fold. The
+balanced forest's small validation advantage over logistic regression does not
+establish a reliable improvement. Its mean fold training AP is 0.117955 versus
+0.000285 on fold validation, so overfitting remains a concern.
+
+The balanced forest's four largest impurity-based importances are historical
+traffic volume (0.234643), previous-day temperature (0.187178), historical KSI
+count (0.127754), and the traffic-missing flag (0.114420). They describe this
+fitted ensemble, not causal effects or stable predictive value. W11 saves no new
+dataset or model artifact and does not evaluate an untouched final test.
+
 ## Notebooks
 
 The current analysis notebooks are:
@@ -544,6 +585,7 @@ The current analysis notebooks are:
 | `notebooks/09_linear_regression_numpy.ipynb` | Derive one-feature linear regression with NumPy and compare with scikit-learn |
 | `notebooks/10_risk_feature_engineering.ipynb` | Build lagged KSI and weather features; evaluate feature-group ablations |
 | `notebooks/11_decision_tree.ipynb` | Tune tree depth, inspect overfitting and feature importances, compare earlier baselines |
+| `notebooks/12_random_forest.ipynb` | Compare weighted and unweighted forests with logistic regression and a decision tree |
 
 Notebooks are investigative artifacts. W4 dataset preparation is also present
 in a source script; the notebook and script should eventually share one
@@ -552,7 +594,8 @@ model fitting, and evaluation currently live in notebook 06; W6 comparison,
 W7 tuning, and W8 coefficient inspection live in notebooks 07 and 08. The
 standalone W8 linear-regression exercise lives in notebook 09.
 W9 feature construction and ablation remain in notebook 10; W10 tree modeling
-and evaluation remain in notebook 11.
+and evaluation remain in notebook 11; W11 forest comparison remains in notebook
+12.
 
 ## Source Code
 
@@ -585,7 +628,7 @@ Traffic Signals and interim KSI files, constructs the W4 grid and features,
 checks basic invariants, and writes the dataset, matching reports, and matched
 KSI events used by W9. It runs on import, so execute it as a script rather than
 importing it as a library function. Road-risk model fitting and validation
-currently live in notebooks 05-08 and 10-11; notebook 09 is a separate NumPy
+currently live in notebooks 05-08 and 10-12; notebook 09 is a separate NumPy
 exercise.
 
 ## Repository Structure
@@ -613,7 +656,8 @@ road-risk-intelligence/
 |   |-- 08_hyperparameter_tuning.ipynb
 |   |-- 09_linear_regression_numpy.ipynb
 |   |-- 10_risk_feature_engineering.ipynb
-|   `-- 11_decision_tree.ipynb
+|   |-- 11_decision_tree.ipynb
+|   `-- 12_random_forest.ipynb
 |
 `-- src/
     `-- road_risk/
@@ -739,9 +783,13 @@ Current workflow:
 12. Run `notebooks/11_decision_tree.ipynb` after notebook 10. It reads
     `data/processed/intersection_day_2018_features.csv`, compares tree depths,
     and evaluates the selected tree on the 2018 development validation period.
+13. Run `notebooks/12_random_forest.ipynb` after notebook 10. It reads the same
+    W9 feature table, compares two fixed forest configurations and reruns
+    baselines on temporal folds, then evaluates the selected forest on the 2018
+    development validation period. It does not depend on notebook 11 output.
 
-Run notebooks 05-08 and 10-11 with the working directory set to `notebooks/` because
-their local paths start with `../data/`.
+Run notebooks 05-08 and 10-12 with the working directory set to `notebooks/`
+because their local paths start with `../data/`.
 
 The resulting `data/interim/ksi_events.csv` is an intermediate dataset. It is
 not yet the final machine-learning observation table.
@@ -833,9 +881,12 @@ strictly prior-day KSI counts and previous-day weather, then fits its
 preprocessing within each temporal training fold. Historical publication
 timing for external measurements still needs verification. None of these
 experiments reserves a final test period. W10 tunes tree depth on temporal
-training folds and checks the selected tree on development validation. A future
-test period must remain untouched during feature selection, model selection,
-hyperparameter tuning, threshold selection, and calibration decisions.
+training folds and checks the selected tree on development validation. W11
+compares two fixed forest configurations on those temporal folds, reruns the
+logistic and tree baselines, and checks the selected forest on development
+validation. A future test period must remain untouched during feature
+selection, model selection, hyperparameter tuning, threshold selection, and
+calibration decisions.
 
 ## Planned Evaluation
 
@@ -846,8 +897,8 @@ The W4 notebook reports Recall@1% for its baseline. W5-W7 report average
 precision, including a historical KSI-frequency comparison and a regularization
 search. W8 inspects coefficients and reports no new road-risk performance
 metric. W9 reports average precision for feature-group ablations. W10 reports
-average precision for tree depth and model comparison. Further planned metrics
-include:
+average precision for tree depth and model comparison. W11 reports average
+precision for forest and baseline comparisons. Further planned metrics include:
 
 - consistent average-precision and recall-at-top-K comparisons across baselines;
 - Brier score;
@@ -885,7 +936,8 @@ performance.
 - W8 NumPy linear-regression exercise and scikit-learn comparison;
 - W8 inspection of the tuned model's transformed feature coefficients;
 - W9 matched-event export, lagged feature table, and ablation experiments;
-- W10 decision-tree depth search, overfitting check, and baseline comparison.
+- W10 decision-tree depth search, overfitting check, and baseline comparison;
+- W11 random-forest class-weight comparison, temporal CV, and baseline rerun.
 
 ### Next
 
@@ -896,7 +948,8 @@ performance.
   station;
 - decide whether the final spatial unit needs geometry-backed matching;
 - validate the new historical and weather features across broader periods;
-- recheck tree performance and feature importance across broader periods;
+- recheck tree and forest performance and feature importance across broader
+  periods;
 - reserve a chronological final test period outside the 2018 development sample;
 - consolidate notebook and script dataset preparation;
 - compare W4 and W5 on the same dates and metrics;
@@ -910,7 +963,8 @@ performance.
 ### Later
 
 - richer leakage-safe feature engineering;
-- further tree-based model experiments after the evaluation design is stable;
+- gradient-boosting and other tree-ensemble experiments after the evaluation
+  design is stable;
 - broader temporal and geographic validation;
 - probability calibration;
 - error analysis;
