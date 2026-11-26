@@ -1,0 +1,48 @@
+{
+    "week": "W14",
+    "model": "logistic_regression",
+    "parameters": {
+        "model__C": 100
+    },
+    "training": {
+        "observations": 823217,
+        "positives": 119,
+        "fit_seconds": 3.1135444999672472
+    },
+    "test": {
+        "start": "2019-01-02",
+        "end": "2019-12-30",
+        "observations": 819654,
+        "positives": 133,
+        "prevalence": 0.00016226358927059467,
+        "predict_seconds": 0.6906682000262663
+    },
+    "metrics": {
+        "average_precision": 0.0003636743707737879,
+        "ap_lift": 2.2412567872347244,
+        "pr_auc_trapezoidal": 0.00033808620062820234,
+        "roc_auc": 0.6139977026558141,
+        "recall_at_5pct": 0.17293233082706766,
+        "recall_at_10pct": 0.24060150375939848,
+        "precision_at_5pct": 0.0005612083058829271,
+        "precision_at_10pct": 0.0003904057780055145,
+        "captured_at_5pct": 23,
+        "captured_at_10pct": 32
+    },
+    "diagnostic_findings": {
+        "missing_traffic_observations": 323796,
+        "missing_traffic_positives": 37,
+        "missing_traffic_recall_at_10pct": 0.0
+    },
+    "limitations": [
+        "Extremely low absolute precision",
+        "High variability across temporal folds",
+        "Uneven performance across seasonal groups",
+        "No missing-traffic observations selected at Top 5% or Top 10%",
+        "Historical reporting latency not verified",
+        "Fixed intersection cohort",
+        "Global ranking is not equivalent to daily operational ranking",
+        "Probability calibration not validated",
+        "Not suitable for automated safety-critical decisions"
+    ]
+}

@@ -1,0 +1,65 @@
+{
+    "week": "W14",
+    "selected_model": "logistic_regression",
+    "selected_params": {
+        "model__C": 100
+    },
+    "random_state": 42,
+    "feature_columns": [
+        "historical_ksi_count",
+        "historical_traffic_volume",
+        "ksi_count_30d",
+        "ksi_count_365d",
+        "temperature_prev_day",
+        "precipitation_prev_day",
+        "day_of_week",
+        "month",
+        "is_weekend",
+        "traffic_missing",
+        "weather_missing"
+    ],
+    "selection": {
+        "primary_metric": "mean_outer_average_precision",
+        "outer_mean_ap": 0.0009036585867754072,
+        "outer_std_ap": 0.0010966301762515317,
+        "development_ap": 0.0003897870174221818,
+        "development_recall_5pct": 0.10526315789473684,
+        "development_recall_10pct": 0.2631578947368421
+    },
+    "final_training": {
+        "start": "2018-01-01",
+        "end": "2018-12-31",
+        "observations": 823217,
+        "positives": 119
+    },
+    "final_test": {
+        "start": "2019-01-02",
+        "end": "2019-12-30",
+        "prediction_horizon_days": 1,
+        "top_k_fractions": [
+            0.05,
+            0.1
+        ],
+        "ranking_scope": "entire_evaluation_period",
+        "top_k_rounding": "ceil",
+        "tie_breaker": "seeded_random_permutation",
+        "reference_baselines": [
+            "constant_score",
+            "historical_frequency"
+        ],
+        "calibration_applied": false,
+        "hyperparameter_tuning_allowed": false
+    },
+    "environment": {
+        "numpy": "2.4.6",
+        "pandas": "3.0.6",
+        "scikit_learn": "1.9.1"
+    },
+    "limitations": [
+        "Extremely rare positive class",
+        "High variability across temporal folds",
+        "Development data reused during model selection",
+        "Historical data reporting latency not verified",
+        "Risk scores are not validated calibrated probabilities"
+    ]
+}

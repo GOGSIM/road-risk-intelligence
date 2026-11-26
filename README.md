@@ -10,7 +10,7 @@ output is a relative-risk signal that can support human road-safety review.
 
 ## Current Status
 
-**Current milestone: Week 13 validation protocol completed.**
+**Current milestone: Week 14 independent 2019 test evaluation completed.**
 
 The repository now contains:
 
@@ -39,11 +39,15 @@ The repository now contains:
 - a W12 notebook comparing histogram gradient boosting with logistic regression
   and a balanced random forest, then tuning the boosting model with temporal CV;
 - a W13 notebook with nested temporal and intersection-group validation,
-  historical-feature checks, and exported protocol reports.
+  historical-feature checks, and exported protocol reports;
+- W14 notebooks that freeze the selected model, build the 2019 test table, and
+  evaluate it against constant-score and historical-frequency baselines.
 
-The W4-W13 road-risk results are exploratory. A 2019 final-test window is
-specified, but its dataset has not been built or evaluated. There is no saved
-trained model or deployed prediction service.
+The W4-W13 results are exploratory development results. W14 evaluates the
+selected logistic-regression model on a separate 2019 test period. The test
+result still needs careful interpretation given sparse positives, fixed cohort,
+and unverified historical data availability. There is no saved trained-model
+artifact or deployed prediction service.
 
 | Component | Status |
 | --- | --- |
@@ -86,9 +90,10 @@ trained model or deployed prediction service.
 | Week 12 model comparison and shortlist | Completed in notebook |
 | Week 13 nested temporal and grouped validation | Completed in notebook |
 | Week 13 protocol and fold reports | Generated locally |
-| 2019 final-test dataset | Period defined; dataset not built |
+| Week 14 2019 final-test dataset | Generated locally |
+| Week 14 model selection and frozen configuration | Completed in notebooks and JSON |
+| Week 14 final-test evaluation and diagnostics | Completed in notebook; reports generated locally |
 | Final dataset and spatial definition | Still under validation |
-| Untouched test evaluation | Not started |
 | API, database, deployment, monitoring | Deferred |
 
 ## Project Scope
@@ -99,7 +104,7 @@ The long-term intended prediction unit is:
 road spatial unit x time window
 ```
 
-The W3-W13 road-risk experiments use a narrower unit:
+The W3-W14 road-risk experiments use a narrower unit:
 
 ```text
 signalized intersection x prediction day
@@ -119,10 +124,11 @@ compares models on this dataset, and W7 tunes the same logistic-regression
 pipeline. W8 inspects its coefficients, and W9 adds historical and weather
 features to the same observation grid. W10 tests a decision tree, W11 compares
 random forests against the tree and logistic regression, and W12 adds histogram
-gradient boosting on the W9 features. W13 formalizes validation of the same
-2018 pilot table. This is a reproducible pilot definition, not a finalized
-production dataset. The choice of spatial unit and broader time coverage remain
-open; the W13 validation protocol also needs testing on later data.
+gradient boosting on the W9 features. W13 formalizes validation of the 2018
+pilot table, and W14 evaluates the selected model on a 2019 table built for the
+same 2,258 intersections. This is a reproducible pilot definition, not a
+finalized production dataset. The fixed spatial cohort and data availability
+still need validation before operational use.
 
 ## Academic Foundation
 
@@ -201,14 +207,16 @@ verification.
 
 ### Toronto Daily Weather
 
-- Local inputs: `data/raw/en_climate_daily_ON_6158731_2017_P1D.csv` and
-  `data/raw/en_climate_daily_ON_6158731_2018_P1D.csv`
-- Observed rows: 730 daily records across 2017 and 2018
+- Local inputs: `data/raw/en_climate_daily_ON_6158731_2017_P1D.csv`,
+  `data/raw/en_climate_daily_ON_6158731_2018_P1D.csv`, and
+  `data/raw/en_climate_daily_ON_6158731_2019_P1D.csv`
+- Observed rows: 730 daily records across 2017 and 2018; the W14 notebook
+  checks 365 rows and date coverage in the separate 2019 file
 - Station in the files: `TORONTO INTL A` (Climate ID `6158731`)
 - W9 fields: daily mean temperature and total precipitation
 
-W9 joins each prediction row to the previous day's observation. This is a
-single-station proxy for all intersections; the time at which each daily
+W9 and W14 join each prediction row to the previous day's observation. This is
+a single-station proxy for all intersections; the time at which each daily
 observation became available for prediction has not been verified.
 
 ## Main Findings So Far
@@ -506,7 +514,7 @@ removing KSI history is not consistent across the temporal folds. Weather has
 no clear benefit, and no feature group is established as universally helpful
 or harmful. The outcome matching rate, traffic coverage, single weather
 station, unverified external-data availability, and KSI reporting latency
-limit these results. No untouched final test has been evaluated.
+limit these results. W9 did not evaluate an untouched final test.
 
 ### Week 10: Decision Tree and Overfitting
 
@@ -654,8 +662,60 @@ period, not an independent final-test estimate.
 Notebook 14 writes ten CSV tables and `validation_protocol.json` under
 `reports/validation_w13/`, including split dates, fold assignments, historical
 feature checks, model results, and the proposed test window. It saves no fitted
-model. Reporting delays, small positive counts, and the lack of a built 2019
-test dataset still limit conclusions.
+model. At the W13 stage, reporting delays, small positive counts, and the lack
+of a built 2019 test dataset still limited conclusions.
+
+### Week 14: 2019 Final Test and Error Analysis
+
+Notebook 15 compares logistic regression, a balanced random forest, histogram
+gradient boosting, a constant-score baseline, and historical intersection
+frequency on the 2018 development data. The three outer temporal folds use two
+inner folds for tuning logistic regression and boosting. Logistic regression
+has the highest mean outer average precision (AP): 0.000904, versus 0.000276
+for boosting and 0.000271 for the forest. A further search on the full 2018
+training portion selects `C=100`; logistic regression reaches AP 0.000390 on
+2018 development validation. The model name, parameters, features, test window,
+and ranking rules are saved to `reports/evaluation_w14/model_selection.json`
+before test evaluation.
+
+Notebook 16 uses that configuration, the 2018 feature table, matched KSI events,
+and 2019 weather data to build
+`data/processed/intersection_day_2019_features.csv`. It retains the 2,258
+intersections in the 2018 table, uses 363 prediction dates from 2019-01-02
+through 2019-12-30, and creates 819,654 rows with the same 16 columns. It
+reuses the intersection-level historical traffic-volume value from the 2018
+table, counts only KSI events preceding each prediction date, joins previous-day
+weather, and labels a next-day matched KSI event. The resulting test table has
+133 positives. The 2019 weather station and date coverage, table shape, column
+set, and rebuilt 2018 historical counts are checked in the notebook.
+
+The frozen logistic-regression configuration is fitted on all 823,217 2018
+observations (119 positives) and evaluated on the 2019 table. Top-K ranks
+all 2019 intersection-day rows together; K is rounded up to 5% or 10% of the
+table and ties use a seeded random permutation. These are full-period ranking
+metrics, not a per-day operating policy.
+
+| 2019 test metric | Logistic regression | Historical frequency | Constant score |
+| --- | ---: | ---: | ---: |
+| Average precision | 0.000364 | 0.000170 | 0.000162 |
+| ROC AUC | 0.614 | 0.516 | 0.500 |
+| Recall at top 5% | 17.29% (23/133) | 8.27% (11/133) | 6.02% (8/133) |
+| Recall at top 10% | 24.06% (32/133) | 13.53% (18/133) | 11.28% (15/133) |
+
+Logistic-regression AP is about 2.24 times the 2019 prevalence baseline, but
+absolute precision at the top 5% and 10% is only 0.000561 and 0.000390. The
+2018 development AP was 0.000390, compared with 0.000364 on the 2019 test.
+Slice diagnostics show uneven results by season and historical KSI count. None
+of the 323,796 test rows with missing traffic volume entered the global top 5%
+or top 10%, despite 37 positives in that group. This needs investigation before
+any use of the ranking.
+
+W14 exports seven CSV tables, two JSON summaries, and two diagnostic figures to
+`reports/evaluation_w14/`. The fitted estimator exists only in the notebook;
+no model artifact is saved. The test uses a fixed 2018 intersection cohort and
+historical traffic values, one weather station, and matched KSI labels whose
+reporting latency has not been verified. Scores are not calibrated probabilities
+and are not ready for automated safety-critical decisions.
 
 ## Notebooks
 
@@ -677,6 +737,8 @@ The current analysis notebooks are:
 | `notebooks/12_random_forest.ipynb` | Compare weighted and unweighted forests with logistic regression and a decision tree |
 | `notebooks/13_gradient_boosting.ipynb` | Tune histogram gradient boosting and compare it with logistic regression and a balanced random forest |
 | `notebooks/14_validation_protocol.ipynb` | Rebuild historical counts, run nested temporal and grouped checks, and export validation reports |
+| `notebooks/15_final_model_evaluation.ipynb` | Select and freeze the model, then evaluate it on the 2019 test table and export diagnostics |
+| `notebooks/16_final_test_dataset.ipynb` | Build the 2019 intersection-day test table from frozen configuration and source data |
 
 Notebooks are investigative artifacts. W4 dataset preparation is also present
 in a source script; the notebook and script should eventually share one
@@ -687,7 +749,8 @@ standalone W8 linear-regression exercise lives in notebook 09.
 W9 feature construction and ablation remain in notebook 10; W10 tree modeling
 and evaluation remain in notebook 11; W11 forest comparison remains in notebook
 12; W12 boosting and model comparison remain in notebook 13. W13 validation
-remains in notebook 14.
+remains in notebook 14. W14 dataset construction and evaluation remain in
+notebooks 16 and 15, respectively.
 
 ## Source Code
 
@@ -720,7 +783,7 @@ Traffic Signals and interim KSI files, constructs the W4 grid and features,
 checks basic invariants, and writes the dataset, matching reports, and matched
 KSI events used by W9. It runs on import, so execute it as a script rather than
 importing it as a library function. Road-risk model fitting and validation
-currently live in notebooks 05-08 and 10-14; notebook 09 is a separate NumPy
+currently live in notebooks 05-08 and 10-16; notebook 09 is a separate NumPy
 exercise.
 
 ## Repository Structure
@@ -751,10 +814,13 @@ road-risk-intelligence/
 |   |-- 11_decision_tree.ipynb
 |   |-- 12_random_forest.ipynb
 |   |-- 13_gradient_boosting.ipynb
-|   `-- 14_validation_protocol.ipynb
+|   |-- 14_validation_protocol.ipynb
+|   |-- 15_final_model_evaluation.ipynb
+|   `-- 16_final_test_dataset.ipynb
 |
 |-- reports/
-|   `-- validation_w13/              # W13 CSV tables and protocol JSON
+|   |-- validation_w13/              # W13 CSV tables and protocol JSON
+|   `-- evaluation_w14/              # W14 metrics, summaries, and figures
 |
 `-- src/
     `-- road_risk/
@@ -793,9 +859,10 @@ Rules:
 
 More detail is documented in `data/README.md`.
 
-W13 additionally writes validation summaries and metadata to
-`reports/validation_w13/`. Unlike the generated datasets under `data/`, this
-directory is not excluded by the current `.gitignore`.
+W13 and W14 additionally write validation and evaluation summaries to
+`reports/validation_w13/` and `reports/evaluation_w14/`. Unlike the generated
+datasets under `data/`, these directories are not excluded by the current
+`.gitignore`.
 
 ## Development Setup
 
@@ -844,6 +911,7 @@ data/raw/traffic-signals.csv
 data/raw/tmc_summary_data.csv
 data/raw/en_climate_daily_ON_6158731_2017_P1D.csv
 data/raw/en_climate_daily_ON_6158731_2018_P1D.csv
+data/raw/en_climate_daily_ON_6158731_2019_P1D.csv
 ```
 
 Current workflow:
@@ -899,8 +967,19 @@ Current workflow:
     split boundaries, runs nested temporal and grouped checks, and writes the
     CSV and JSON summaries to `reports/validation_w13/`. It does not need the
     outputs of notebooks 11-13.
+16. Run cells 0-22 of `notebooks/15_final_model_evaluation.ipynb` after notebook
+    14. These cells compare candidates on 2018 data and write the frozen
+    `reports/evaluation_w14/model_selection.json` before reading test outcomes.
+    An existing configuration file with different contents causes an error.
+17. Run `notebooks/16_final_test_dataset.ipynb`. It reads that frozen JSON, the
+    2018 feature table, matched KSI events, and the 2019 daily weather file,
+    then writes `data/processed/intersection_day_2019_features.csv`.
+18. Resume `notebooks/15_final_model_evaluation.ipynb` from cell 23 to evaluate
+    the selected model and baselines on the 2019 test table and export the W14
+    reports and figures. Keep the frozen model and ranking rules fixed when
+    interpreting this test result.
 
-Run notebooks 05-08 and 10-14 with the working directory set to `notebooks/`
+Run notebooks 05-08 and 10-16 with the working directory set to `notebooks/`
 because their local paths start with `../data/`.
 
 The resulting `data/interim/ksi_events.csv` is an intermediate dataset. It is
@@ -925,7 +1004,13 @@ columns. It reads `ksi_matched_events.csv` generated by the current W4 script.
 
 Notebook 14 writes ten CSV reports and `validation_protocol.json` in
 `reports/validation_w13/`. The JSON records the proposed 2019 test window with
-`dataset_built=false` and `evaluated=false`; no 2019 data is generated here.
+`dataset_built=false` and `evaluated=false` as a W13 snapshot. W14 subsequently
+builds and evaluates that test dataset; the W13 JSON is not updated.
+
+Notebook 16 writes the ignored local file
+`data/processed/intersection_day_2019_features.csv` with 819,654 rows and 16
+columns. Notebook 15 reads it and writes seven CSV reports, two JSON summaries,
+and two figures under `reports/evaluation_w14/`.
 
 Notebook 05 also writes `intersection_day_2018_09.csv`. Despite its suffix,
 the notebook's prediction window covers the full year 2018. The script output
@@ -1003,12 +1088,14 @@ logistic and tree baselines, and checks the selected forest on development
 validation. W12 uses the same folds to tune boosting, then compares selected
 models on the previously reused development period. W13 adds nested temporal
 selection and a separate intersection-group check, then tunes on all 2018
-training rows and checks the selected model on development validation. The
-specified 2019 final-test period has not been built; it must remain untouched
-during feature selection, model selection, hyperparameter tuning, threshold
-selection, and calibration decisions.
+training rows and checks the selected model on development validation. W14
+freezes the logistic-regression configuration and global top-K ranking rules
+before building and evaluating the 2019 test table. The fitted model uses all
+2018 rows; no hyperparameter search is run on the 2019 outcomes. That test
+period has now been used, so further changes based on its results need a new
+independent period for confirmation.
 
-## Planned Evaluation
+## Evaluation Status and Next Metrics
 
 Because serious collisions are rare events, raw accuracy will not be a primary
 metric.
@@ -1020,18 +1107,18 @@ metric. W9 reports average precision for feature-group ablations. W10 reports
 average precision for tree depth and model comparison. W11 reports average
 precision for forest and baseline comparisons. W12 reports average precision
 for boosting and its model shortlist. W13 reports nested temporal and grouped
-AP, plus development AP against constant and historical baselines. Further
-planned metrics include:
+AP, plus development AP against constant and historical baselines. W14 adds
+2019 test AP, ROC AUC, precision and recall at global top 5% and 10%, and
+initial slice diagnostics. Further planned evaluation includes:
 
-- consistent average-precision and recall-at-top-K comparisons across baselines;
 - Brier score;
 - calibration analysis;
-- precision and recall at selected operating points;
-- slice-based error analysis.
+- daily or other operational ranking definitions;
+- deeper slice-based error analysis and confirmation on later data.
 
-Current road-risk metrics describe only 2018 development data; they are not
-final generalization estimates. The W8 toy-data MSE is unrelated to road-risk
-performance.
+The 2019 result is an independent chronological test of this selected model on
+the fixed pilot cohort, not a guarantee of performance in later years or other
+locations. The W8 toy-data MSE is unrelated to road-risk performance.
 
 ## Roadmap
 
@@ -1062,7 +1149,9 @@ performance.
 - W10 decision-tree depth search, overfitting check, and baseline comparison;
 - W11 random-forest class-weight comparison, temporal CV, and baseline rerun;
 - W12 histogram gradient-boosting search and development model shortlist;
-- W13 nested temporal and grouped validation protocol with exported reports.
+- W13 nested temporal and grouped validation protocol with exported reports;
+- W14 frozen model selection, 2019 test table, final evaluation, and error
+  analysis reports.
 
 ### Next
 
@@ -1075,10 +1164,10 @@ performance.
 - validate the new historical and weather features across broader periods;
 - recheck tree and forest performance and feature importance across broader
   periods;
-- evaluate the W12 shortlist with additional rare-event ranking metrics,
-  calibration, and error slices;
-- build the designated 2019 final-test dataset and keep it untouched until the
-  evaluation protocol and model selection are fixed;
+- investigate the missing-traffic blind spot and uneven seasonal and
+  history-group performance found on the 2019 test;
+- define an operational daily ranking and assess calibration and practical
+  decision utility on later, independent data;
 - consolidate notebook and script dataset preparation;
 - compare W4 and W5 on the same dates and metrics;
 - assess coefficient stability across time and improve interpretability of
@@ -1094,8 +1183,7 @@ performance.
 - further tree-ensemble experiments after the evaluation design is stable;
 - broader temporal and geographic validation;
 - probability calibration;
-- error analysis;
-- final untouched test evaluation;
+- further error analysis and a new independent test after any model revisions;
 - deployment-oriented API, database, CI, Docker, and monitoring only after the
   ML pipeline is validated.
 
