@@ -1,0 +1,4 @@
+model,average_precision,ap_lift
+Constant baseline,0.00018292448107213002,1.0
+Historical frequency baseline,0.00018173145349474596,0.9934780321890669
+Logistic Regression,0.0003897870174221818,2.1308630487161673

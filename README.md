@@ -10,7 +10,7 @@ output is a relative-risk signal that can support human road-safety review.
 
 ## Current Status
 
-**Current milestone: Week 12 gradient-boosting comparison completed.**
+**Current milestone: Week 13 validation protocol completed.**
 
 The repository now contains:
 
@@ -37,10 +37,13 @@ The repository now contains:
 - a W11 notebook comparing two random forests with the decision tree and
   logistic regression on the same temporal splits;
 - a W12 notebook comparing histogram gradient boosting with logistic regression
-  and a balanced random forest, then tuning the boosting model with temporal CV.
+  and a balanced random forest, then tuning the boosting model with temporal CV;
+- a W13 notebook with nested temporal and intersection-group validation,
+  historical-feature checks, and exported protocol reports.
 
-The W4-W12 road-risk results are exploratory. There is no untouched final test
-period, trained-model artifact, or deployed prediction service.
+The W4-W13 road-risk results are exploratory. A 2019 final-test window is
+specified, but its dataset has not been built or evaluated. There is no saved
+trained model or deployed prediction service.
 
 | Component | Status |
 | --- | --- |
@@ -81,6 +84,9 @@ period, trained-model artifact, or deployed prediction service.
 | Week 11 temporal CV and development-validation check | Completed in notebook |
 | Week 12 histogram gradient-boosting search | Completed in notebook |
 | Week 12 model comparison and shortlist | Completed in notebook |
+| Week 13 nested temporal and grouped validation | Completed in notebook |
+| Week 13 protocol and fold reports | Generated locally |
+| 2019 final-test dataset | Period defined; dataset not built |
 | Final dataset and spatial definition | Still under validation |
 | Untouched test evaluation | Not started |
 | API, database, deployment, monitoring | Deferred |
@@ -93,7 +99,7 @@ The long-term intended prediction unit is:
 road spatial unit x time window
 ```
 
-The W3-W12 road-risk experiments use a narrower unit:
+The W3-W13 road-risk experiments use a narrower unit:
 
 ```text
 signalized intersection x prediction day
@@ -113,9 +119,10 @@ compares models on this dataset, and W7 tunes the same logistic-regression
 pipeline. W8 inspects its coefficients, and W9 adds historical and weather
 features to the same observation grid. W10 tests a decision tree, W11 compares
 random forests against the tree and logistic regression, and W12 adds histogram
-gradient boosting on the W9 features. This is a reproducible pilot definition,
-not a finalized production dataset. The choice of spatial unit, broader time
-coverage, and final validation scheme remain open.
+gradient boosting on the W9 features. W13 formalizes validation of the same
+2018 pilot table. This is a reproducible pilot definition, not a finalized
+production dataset. The choice of spatial unit and broader time coverage remain
+open; the W13 validation protocol also needs testing on later data.
 
 ## Academic Foundation
 
@@ -608,6 +615,48 @@ selection of hyperparameters on these same folds limit model selection; no
 final model is chosen. W12 saves no new dataset or model artifact and does not
 evaluate an untouched final test.
 
+### Week 13: Validation Protocol
+
+Notebook 14 reads the W9 feature table and matched KSI events, sorts observations
+by prediction date and intersection, and checks the 2018 train/development split:
+613,223 training rows with 81 positives through 2018-09-29 and 207,736
+development-validation rows with 38 positives from 2018-10-01 through
+2018-12-31. The one-day gap separates their target and prediction dates. It
+designates 2019-01-02 through 2019-12-30 for a future final test, but does not
+build that dataset or evaluate it.
+
+The notebook independently reconstructs the historical KSI count and 30-day
+and 365-day counts from matched events strictly before each prediction date.
+All three reconstructed columns match the existing 2018 feature table on both
+splits (zero changed values). This checks the stored counts; it does not verify
+when external event records became available in practice.
+
+For logistic regression, the protocol uses three outer temporal folds and two
+inner temporal folds per outer fold, all split by unique prediction date with a
+one-day gap. Inner `GridSearchCV` searches `C` in 0.01, 0.1, 1, 10, and 100;
+preprocessing is fitted within training folds. Separate three-fold `GroupKFold`
+checks unseen intersection IDs with fixed `C=0.1`. Grouped folds do not enforce
+chronological separation, so they measure a different generalization question.
+
+| W13 check | Mean AP | AP standard deviation | Fold AP |
+| --- | ---: | ---: | --- |
+| Nested temporal CV | 0.000904 | 0.000895 | 0.000150, 0.000399, 0.002162 |
+| Grouped intersection CV | 0.001542 | 0.001896 | 0.000182, 0.000222, 0.004224 |
+
+The smallest inner training fold has only two positives, and fold scores vary
+widely. After the nested evaluation, a separate two-fold temporal search on the
+full 2018 training period selects `C=100` (mean tuning AP 0.000882). The refitted
+model reaches development AP 0.000390, versus 0.000183 for a constant-score
+baseline and 0.000182 for historical intersection frequency. This is about a
+2.13x AP lift over the constant baseline on a repeatedly used development
+period, not an independent final-test estimate.
+
+Notebook 14 writes ten CSV tables and `validation_protocol.json` under
+`reports/validation_w13/`, including split dates, fold assignments, historical
+feature checks, model results, and the proposed test window. It saves no fitted
+model. Reporting delays, small positive counts, and the lack of a built 2019
+test dataset still limit conclusions.
+
 ## Notebooks
 
 The current analysis notebooks are:
@@ -627,6 +676,7 @@ The current analysis notebooks are:
 | `notebooks/11_decision_tree.ipynb` | Tune tree depth, inspect overfitting and feature importances, compare earlier baselines |
 | `notebooks/12_random_forest.ipynb` | Compare weighted and unweighted forests with logistic regression and a decision tree |
 | `notebooks/13_gradient_boosting.ipynb` | Tune histogram gradient boosting and compare it with logistic regression and a balanced random forest |
+| `notebooks/14_validation_protocol.ipynb` | Rebuild historical counts, run nested temporal and grouped checks, and export validation reports |
 
 Notebooks are investigative artifacts. W4 dataset preparation is also present
 in a source script; the notebook and script should eventually share one
@@ -636,7 +686,8 @@ W7 tuning, and W8 coefficient inspection live in notebooks 07 and 08. The
 standalone W8 linear-regression exercise lives in notebook 09.
 W9 feature construction and ablation remain in notebook 10; W10 tree modeling
 and evaluation remain in notebook 11; W11 forest comparison remains in notebook
-12; W12 boosting and model comparison remain in notebook 13.
+12; W12 boosting and model comparison remain in notebook 13. W13 validation
+remains in notebook 14.
 
 ## Source Code
 
@@ -669,7 +720,7 @@ Traffic Signals and interim KSI files, constructs the W4 grid and features,
 checks basic invariants, and writes the dataset, matching reports, and matched
 KSI events used by W9. It runs on import, so execute it as a script rather than
 importing it as a library function. Road-risk model fitting and validation
-currently live in notebooks 05-08 and 10-13; notebook 09 is a separate NumPy
+currently live in notebooks 05-08 and 10-14; notebook 09 is a separate NumPy
 exercise.
 
 ## Repository Structure
@@ -699,7 +750,11 @@ road-risk-intelligence/
 |   |-- 10_risk_feature_engineering.ipynb
 |   |-- 11_decision_tree.ipynb
 |   |-- 12_random_forest.ipynb
-|   `-- 13_gradient_boosting.ipynb
+|   |-- 13_gradient_boosting.ipynb
+|   `-- 14_validation_protocol.ipynb
+|
+|-- reports/
+|   `-- validation_w13/              # W13 CSV tables and protocol JSON
 |
 `-- src/
     `-- road_risk/
@@ -737,6 +792,10 @@ Rules:
 - canonical transformations belong in source code once they stabilize.
 
 More detail is documented in `data/README.md`.
+
+W13 additionally writes validation summaries and metadata to
+`reports/validation_w13/`. Unlike the generated datasets under `data/`, this
+directory is not excluded by the current `.gitignore`.
 
 ## Development Setup
 
@@ -834,8 +893,14 @@ Current workflow:
     balanced forest, tunes boosting on temporal folds, and evaluates selected
     models on the 2018 development validation period. It does not depend on
     notebooks 11 or 12 output.
+15. Run `notebooks/14_validation_protocol.ipynb` after notebook 10 and the W4
+    dataset builder. It reads the W9 feature table and
+    `data/processed/ksi_matched_events.csv`, validates historical counts and
+    split boundaries, runs nested temporal and grouped checks, and writes the
+    CSV and JSON summaries to `reports/validation_w13/`. It does not need the
+    outputs of notebooks 11-13.
 
-Run notebooks 05-08 and 10-13 with the working directory set to `notebooks/`
+Run notebooks 05-08 and 10-14 with the working directory set to `notebooks/`
 because their local paths start with `../data/`.
 
 The resulting `data/interim/ksi_events.csv` is an intermediate dataset. It is
@@ -857,6 +922,10 @@ eight columns. Notebook 07 reads this file.
 Notebook 10 writes the ignored local file
 `data/processed/intersection_day_2018_features.csv` with 823,217 rows and 16
 columns. It reads `ksi_matched_events.csv` generated by the current W4 script.
+
+Notebook 14 writes ten CSV reports and `validation_protocol.json` in
+`reports/validation_w13/`. The JSON records the proposed 2019 test window with
+`dataset_built=false` and `evaluated=false`; no 2019 data is generated here.
 
 Notebook 05 also writes `intersection_day_2018_09.csv`. Despite its suffix,
 the notebook's prediction window covers the full year 2018. The script output
@@ -932,9 +1001,12 @@ training folds and checks the selected tree on development validation. W11
 compares two fixed forest configurations on those temporal folds, reruns the
 logistic and tree baselines, and checks the selected forest on development
 validation. W12 uses the same folds to tune boosting, then compares selected
-models on the previously reused development period. A future test period must
-remain untouched during feature selection, model selection, hyperparameter
-tuning, threshold selection, and calibration decisions.
+models on the previously reused development period. W13 adds nested temporal
+selection and a separate intersection-group check, then tunes on all 2018
+training rows and checks the selected model on development validation. The
+specified 2019 final-test period has not been built; it must remain untouched
+during feature selection, model selection, hyperparameter tuning, threshold
+selection, and calibration decisions.
 
 ## Planned Evaluation
 
@@ -947,7 +1019,9 @@ search. W8 inspects coefficients and reports no new road-risk performance
 metric. W9 reports average precision for feature-group ablations. W10 reports
 average precision for tree depth and model comparison. W11 reports average
 precision for forest and baseline comparisons. W12 reports average precision
-for boosting and its model shortlist. Further planned metrics include:
+for boosting and its model shortlist. W13 reports nested temporal and grouped
+AP, plus development AP against constant and historical baselines. Further
+planned metrics include:
 
 - consistent average-precision and recall-at-top-K comparisons across baselines;
 - Brier score;
@@ -987,7 +1061,8 @@ performance.
 - W9 matched-event export, lagged feature table, and ablation experiments;
 - W10 decision-tree depth search, overfitting check, and baseline comparison;
 - W11 random-forest class-weight comparison, temporal CV, and baseline rerun;
-- W12 histogram gradient-boosting search and development model shortlist.
+- W12 histogram gradient-boosting search and development model shortlist;
+- W13 nested temporal and grouped validation protocol with exported reports.
 
 ### Next
 
@@ -1002,7 +1077,8 @@ performance.
   periods;
 - evaluate the W12 shortlist with additional rare-event ranking metrics,
   calibration, and error slices;
-- reserve a chronological final test period outside the 2018 development sample;
+- build the designated 2019 final-test dataset and keep it untouched until the
+  evaluation protocol and model selection are fixed;
 - consolidate notebook and script dataset preparation;
 - compare W4 and W5 on the same dates and metrics;
 - assess coefficient stability across time and improve interpretability of

@@ -1,0 +1,4 @@
+protocol,mean_ap,std_ap,folds,parameter_selection
+Standard Temporal CV (W12),0.000976,,3,Previous W12 tuning
+Nested Temporal CV (W13),0.0009036585867754072,0.0008953947894515454,3,Nested grid search
+Grouped CV (W13),0.0015423081588601855,0.0018960258834408068,3,Fixed C=0.1

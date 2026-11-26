@@ -1,0 +1,98 @@
+{
+    "project": "Road Accident Risk Intelligence",
+    "week": 13,
+    "dataset": "intersection_day_2018_features.csv",
+    "observation_unit": "intersection_day",
+    "target": "next_day_matched_ksi_event",
+    "prediction_horizon_days": 1,
+    "temporal_gap_days": 1,
+    "group_column": "intersection_id",
+    "random_state": 42,
+    "periods": {
+        "train": {
+            "start": "2018-01-01",
+            "end": "2018-09-29"
+        },
+        "development_validation": {
+            "start": "2018-10-01",
+            "end": "2018-12-31"
+        },
+        "final_test": {
+            "start": "2019-01-02",
+            "end": "2019-12-30",
+            "dataset_built": false,
+            "evaluated": false
+        }
+    },
+    "historical_features": {
+        "source": "ksi_matched_events.csv",
+        "method": "numpy.searchsorted",
+        "rolling_windows_days": [
+            30,
+            365
+        ],
+        "include_prediction_day": false,
+        "reporting_delay_verified": false
+    },
+    "features": {
+        "numeric": [
+            "historical_ksi_count",
+            "historical_traffic_volume",
+            "ksi_count_30d",
+            "ksi_count_365d",
+            "temperature_prev_day",
+            "precipitation_prev_day"
+        ],
+        "categorical": [
+            "day_of_week",
+            "month"
+        ],
+        "binary": [
+            "is_weekend",
+            "traffic_missing",
+            "weather_missing"
+        ]
+    },
+    "cross_validation": {
+        "temporal_splitter": "TimeSeriesSplit",
+        "temporal_split_unit": "prediction_date",
+        "outer_folds": 3,
+        "inner_folds": 2,
+        "final_tuning_folds": 2,
+        "group_splitter": "GroupKFold",
+        "group_folds": 3
+    },
+    "model": {
+        "name": "LogisticRegression",
+        "max_iter": 1000,
+        "parameter_grid": {
+            "model__C": [
+                0.01,
+                0.1,
+                1,
+                10,
+                100
+            ]
+        },
+        "grouped_cv_C": 0.1,
+        "selected_C": 100.0
+    },
+    "metric": "average_precision",
+    "results": {
+        "nested_mean_ap": 0.0009036585867754072,
+        "nested_std_ap": 0.0008953947894515454,
+        "grouped_mean_ap": 0.0015423081588601855,
+        "grouped_std_ap": 0.0018960258834408068,
+        "final_tuning_ap": 0.0008821870590307799,
+        "development_ap": 0.0003897870174221818,
+        "constant_baseline_ap": 0.00018292448107213002,
+        "historical_baseline_ap": 0.00018173145349474596,
+        "development_ap_lift": 2.1308630487161673
+    },
+    "environment": {
+        "python": "3.11.7",
+        "numpy": "2.4.6",
+        "pandas": "3.0.6",
+        "scikit_learn": "1.9.1"
+    }
+}
